@@ -50,7 +50,6 @@
     function enterChat() {
       const input = document.getElementById("nickname-input");
       const nick = input.value.trim();
-      
 
       if (nick.length < 2 || nick.length > 20) {
         alert("Nick musi mieć od 2 do 20 znaków.");
@@ -58,12 +57,18 @@
       }
 
       nickname = nick;
-      
 
       document.getElementById("nickname-screen").style.display = "none";
       document.getElementById("chat-screen").style.display = "flex";
 
       socket.emit('join', { nickname, room });
+
+      // Autofocus na polu wiadomości
+      const msgInput = document.getElementById("message-input");
+      msgInput.focus();
+
+      // Wyczyść pole nicku
+      input.value = "";
     }
 
     // Enter = dołącz
@@ -84,19 +89,42 @@
       }
     }
 
+    const inputMsg = document.getElementById("message-input");
+
+    // Enter = wysyłka
+    inputMsg.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendMessage(e);
+    });
+
+    // ======== Typing indicator ========
+    inputMsg.addEventListener("input", () => {
+      if (inputMsg.value) socket.emit('typing', nickname);
+      else socket.emit('stop typing', nickname);
+    });
+
     // ======== Odbieranie wiadomości ========
-    socket.on('chat message', (msg) => {
+    function appendMessage(content, className = "") {
       const msgList = document.getElementById("messages");
-      const newMsg = document.createElement("li");
-
-      // kolorowanie wzmianki
-      const formattedText = msg.text.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
-      newMsg.innerHTML = `<strong>${msg.user}:</strong> ${formattedText}`;
-
-      if (msg.user === nickname) newMsg.classList.add("self");
-
-      msgList.appendChild(newMsg);
+      const li = document.createElement("li");
+      li.className = className;
+      li.appendChild(content);
+      msgList.appendChild(li);
       msgList.scrollTop = msgList.scrollHeight;
+    }
+
+    socket.on('chat message', (msg) => {
+      const strong = document.createElement("strong");
+      strong.textContent = `${msg.user}: `;
+
+      const span = document.createElement("span");
+      // Kolorowanie wzmianki @nickname
+      span.innerHTML = msg.text.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+
+      const liContent = document.createDocumentFragment();
+      liContent.appendChild(strong);
+      liContent.appendChild(span);
+
+      appendMessage(liContent, msg.user === nickname ? "self" : "");
     });
 
     // ======== Lista użytkowników ========
@@ -110,36 +138,34 @@
       });
     });
 
-    // ======== Wskaźnik "pisze..." ========
-    const inputMsg = document.getElementById("message-input");
-    inputMsg.addEventListener("input", () => {
-      if (inputMsg.value) socket.emit('typing', nickname);
-      else socket.emit('stop typing', nickname);
-    });
+    // ======== Typing indicator ========
+    const typingIndicator = document.getElementById("typing-indicator");
 
     socket.on('typing', (nick) => {
-      document.getElementById("typing-indicator").textContent = `${nick} pisze...`;
+      typingIndicator.textContent = `${nick} pisze...`;
     });
 
-    socket.on('stop typing', () => {
-      document.getElementById("typing-indicator").textContent = "";
+    socket.on('stop typing', (nick) => {
+      // Jeżeli nick pasuje do aktualnego wskaźnika, wyczyść
+      if (typingIndicator.textContent.includes(nick)) {
+        typingIndicator.textContent = "";
+      }
     });
 
-    // ======== Powiadomienia o dołączeniu / opuszczeniu ========
+    // ======== Powiadomienia systemowe ========
+    function appendSystemMessage(text) {
+      const li = document.createElement("li");
+      li.classList.add("system");
+      li.textContent = text;
+      appendMessage(li);
+    }
+
     socket.on('user joined', (nick) => {
-      const msgList = document.getElementById("messages");
-      const info = document.createElement("li");
-      info.classList.add("system");
-      info.textContent = `${nick} dołączył do czatu`;
-      msgList.appendChild(info);
+      appendSystemMessage(`${nick} dołączył do czatu`);
     });
 
     socket.on('user left', (nick) => {
-      const msgList = document.getElementById("messages");
-      const info = document.createElement("li");
-      info.classList.add("system");
-      info.textContent = `${nick} opuścił czat`;
-      msgList.appendChild(info);
+      appendSystemMessage(`${nick} opuścił czat`);
     });
   </script>
 
