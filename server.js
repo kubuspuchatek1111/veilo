@@ -1,86 +1,99 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require("socket.io");
+const path = require('path');
+
 const app = express();
-const http = require('http').Server(app);
-const io = require('socket.io')(http);
-const PORT = process.env.PORT || 3000;
+const server = http.createServer(app);
+const io = new Server(server);
 
-// Serwowanie plików statycznych z katalogu "public"
-app.use(express.static('public'));
+// Serwowanie plików statycznych z folderu 'public'
+app.use(express.static(path.join(__dirname, 'public')));
 
-// ---- Zarządzanie użytkownikami ----
-let users = []; // { socketId, nickname, room }
+// Obiekt przechowujący dane o połączonych użytkownikach
+// Struktura: { socketId: { nickname: '...', room: '...' } }
+const users = {};
 
-function addUser(socketId, nickname, room) {
-  const user = { socketId, nickname, room };
-  users.push(user);
-  return user;
-}
-
-function removeUser(socketId) {
-  const index = users.findIndex(u => u.socketId === socketId);
-  if (index !== -1) {
-    return users.splice(index, 1)[0];
-  }
-  return null;
-}
-
-function getUser(socketId) {
-  return users.find(u => u.socketId === socketId);
-}
-
-function getUsersInRoom(room) {
-  return users.filter(u => u.room === room).map(u => u.nickname);
-}
-
-// ---- Socket.IO ----
 io.on('connection', (socket) => {
-  let currentUser = null;
+    console.log(`Nowe połączenie: ${socket.id}`);
 
-  // Dołączenie do pokoju
-  socket.on('join', ({ nickname, room }) => {
-    if (!nickname || !room) return;
+    // --- DOŁĄCZANIE DO POKOJU ---
+    socket.on('join', ({ nickname, room }) => {
+        // Dołączamy socket do konkretnego pokoju (hasha hasła)
+        socket.join(room);
+        
+        // Zapisujemy dane o użytkowniku
+        users[socket.id] = { nickname, room };
 
-    currentUser = addUser(socket.id, nickname, room);
-    socket.join(room);
+        console.log(`${nickname} dołączył do pokoju: ${room}`);
 
-    // Powiadomienie o nowych użytkownikach i dołączeniu
-    io.to(room).emit('user list', getUsersInRoom(room));
-    io.to(room).emit('user joined', nickname);
+        // Powiadomienie innych osób w TYM SAMYM pokoju
+        socket.to(room).emit('user joined', nickname);
 
-    console.log(`${nickname} dołączył do pokoju ${room}`);
-  });
+        // Wyślij zaktualizowaną listę użytkowników TYLKO do tego pokoju
+        updateUserList(room);
+    });
 
-  // Wiadomości
-  socket.on('chat message', (msg) => {
-    if (!msg || !msg.text || !msg.user || !msg.room) return;
+    // --- OBSŁUGA WIADOMOŚCI ---
+    socket.on('chat message', (msg) => {
+        // msg zawiera: { user, text, room }
+        // Wysyłamy wiadomość tylko do osób w pokoju msg.room
+        io.to(msg.room).emit('chat message', msg);
+    });
 
-    io.to(msg.room).emit('chat message', msg);
-    console.log(`Wiadomość od ${msg.user} w ${msg.room}: ${msg.text}`);
-  });
+    // --- WSKAŹNIK PISANIA ---
+    socket.on('typing', (nickname) => {
+        const userData = users[socket.id];
+        if (userData) {
+            // Informujemy innych w pokoju, że ktoś pisze
+            socket.to(userData.room).emit('typing', nickname);
+        }
+    });
 
-  // Typing indicator
-  socket.on('typing', (nick) => {
-    if (!currentUser) return;
-    socket.to(currentUser.room).emit('typing', nick);
-  });
+    socket.on('stop typing', (nickname) => {
+        const userData = users[socket.id];
+        if (userData) {
+            socket.to(userData.room).emit('stop typing', nickname);
+        }
+    });
 
-  socket.on('stop typing', (nick) => {
-    if (!currentUser) return;
-    socket.to(currentUser.room).emit('stop typing', nick);
-  });
+    // --- ROZŁĄCZENIE ---
+    socket.on('disconnect', () => {
+        const userData = users[socket.id];
+        
+        if (userData) {
+            const { nickname, room } = userData;
+            
+            // Informujemy pokój, że ktoś wyszedł
+            socket.to(room).emit('user left', nickname);
+            
+            // Usuwamy użytkownika z bazy
+            delete users[socket.id];
+            
+            // Aktualizujemy listę osób w pokoju
+            updateUserList(room);
+            
+            console.log(`${nickname} opuścił pokój: ${room}`);
+        }
+    });
 
-  // Rozłączenie
-  socket.on('disconnect', () => {
-    if (currentUser) {
-      removeUser(socket.id);
-      io.to(currentUser.room).emit('user list', getUsersInRoom(currentUser.room));
-      io.to(currentUser.room).emit('user left', currentUser.nickname);
-      console.log(`${currentUser.nickname} opuścił czat`);
+    // Funkcja pomocnicza do wysyłania listy użytkowników w danym pokoju
+    function updateUserList(room) {
+        // Filtrujemy globalny obiekt users, aby wyciągnąć tylko osoby z danego pokoju
+        const roomUsers = Object.values(users)
+            .filter(u => u.room === room)
+            .map(u => u.nickname);
+
+        // Wysyłamy listę do wszystkich w tym pokoju
+        io.to(room).emit('user list', roomUsers);
     }
-  });
 });
 
-// Start serwera
-http.listen(PORT, () => {
-  console.log(`✅ Serwer działa na http://localhost:${PORT}`);
+// Uruchomienie serwera
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`\n======================================`);
+    console.log(`   VEILO SERVER IS RUNNING!`);
+    console.log(`   Adres: http://localhost:${PORT}`);
+    console.log(`======================================\n`);
 });
