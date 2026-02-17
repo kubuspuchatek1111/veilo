@@ -9,27 +9,26 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
   <div id="nickname-screen">
-  
     <img src="logo.png" width="50" height="50" alt="Logo" onerror="this.style.display='none'">
     
     <h2>Witaj w Veilo!</h2>
     <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Bezpieczny czat End-to-End</p>
     
     <input type="text" id="nickname-input" placeholder="Twój nick..." maxlength="20" />
-    
     <input type="password" id="secret-key" placeholder="Wspólne hasło pokoju..." style="margin-top: 10px;" />
     
     <button onclick="enterChat()">Dołącz</button>
-    <button onclick="window.location.href='generator.html';">Generator klucza</button>
-    
+    <button onclick="window.location.href='generator.html';" style="background-color: transparent; border: 1px solid #4caf50; color: #4caf50; margin-top: 10px;">
+      Generator klucza
+    </button>
   </div>
 
   <div id="chat-screen" style="display: none;">
-
     <div id="sidebar">
       <h3>Użytkownicy</h3>
       <ul id="user-list"></ul>
@@ -38,7 +37,7 @@
 
     <div id="chat-main">
       <div class="header">
-        Veilo <span style="font-size: 0.8rem; font-weight: normal; color: #888;">(Połączenie szyfrowane)</span>
+        Veilo <span id="room-display" style="font-size: 0.7rem; font-weight: normal; color: #555; margin-left: 10px;"></span>
       </div>
       
       <ul id="messages"></ul>
@@ -52,17 +51,15 @@
     </div>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  
   <script>
     const socket = io();
     let nickname = "";
-    let room = "main";
-    let secretKey = ""; // Zmienna na klucz szyfrujący
+    let room = "";      // ID pokoju (wygenerowane z hasła)
+    let secretKey = ""; // Klucz do szyfrowania (hasło wpisane przez użytkownika)
 
-    // =====================
-    //  Logowanie i wejście
-    // =====================
+    // ==========================================
+    // 1. LOGOWANIE I IZOLACJA POKOJU
+    // ==========================================
     function enterChat() {
       const nickInput = document.getElementById("nickname-input");
       const keyInput = document.getElementById("secret-key");
@@ -76,203 +73,158 @@
       }
 
       if (key.length === 0) {
-        alert("Musisz ustawić hasło, aby szyfrować rozmowę!");
+        alert("Musisz ustawić hasło, aby wejść do pokoju!");
         return;
       }
 
       nickname = nick;
-      secretKey = key; // Zapisujemy hasło w pamięci przeglądarki
+      secretKey = key; 
+
+      // KLUCZOWE: Generujemy unikalne ID pokoju na podstawie hasła.
+      // Serwer nie zna Twojego hasła, widzi tylko ten hash.
+      room = CryptoJS.SHA256(secretKey).toString();
 
       document.getElementById("nickname-screen").style.display = "none";
       document.getElementById("chat-screen").style.display = "flex";
+      document.getElementById("room-display").textContent = "Pokój: " + room.substring(0, 8) + "...";
 
       socket.emit("join", { nickname, room });
-
       document.getElementById("message-input").focus();
       
-      // Czyścimy pola logowania dla bezpieczeństwa
       nickInput.value = "";
       keyInput.value = "";
     }
 
-    // Obsługa Entera na ekranie logowania
     document.getElementById("nickname-screen").addEventListener("keypress", (e) => {
       if (e.key === "Enter") enterChat();
     });
 
-    // =====================
-    //  Wysyłanie (SZYFROWANIE)
-    // =====================
+    // ==========================================
+    // 2. WYSYŁANIE (SZYFROWANIE AES)
+    // ==========================================
     document.getElementById("message-form").addEventListener("submit", (event) => {
       event.preventDefault();
-
       const input = document.getElementById("message-input");
       const rawMessage = input.value.trim();
 
       if (rawMessage === "") return;
 
       try {
-        // SZYFROWANIE: Wiadomość + Hasło -> Zaszyfrowany ciąg znaków
+        // Szyfrujemy oryginalnym hasłem wpisanym przez użytkownika
         const encryptedMessage = CryptoJS.AES.encrypt(rawMessage, secretKey).toString();
 
-        socket.emit("chat message", { user: nickname, text: encryptedMessage, room });
+        socket.emit("chat message", { user: nickname, text: encryptedMessage, room: room });
         socket.emit("stop typing", nickname);
 
         input.value = "";
       } catch (e) {
         console.error("Błąd szyfrowania:", e);
-        alert("Wystąpił błąd podczas szyfrowania wiadomości.");
       }
     });
 
-    // =====================
-    //  Wykrywanie pisania
-    // =====================
-    const inputMsg = document.getElementById("message-input");
-    inputMsg.addEventListener("input", () => {
-      if (inputMsg.value) socket.emit("typing", nickname);
-      else socket.emit("stop typing", nickname);
-    });
-
-    // =====================
-    //  Obsługa UI (Wyświetlanie)
-    // =====================
-    function appendMessage(content, className = "") {
-      const msgList = document.getElementById("messages");
-      const li = document.createElement("li");
-      if (className) li.classList.add(className);
-
-      li.appendChild(content);
-      msgList.appendChild(li);
-      msgList.scrollTop = msgList.scrollHeight;
-    }
-
-    function escapeHTML(text) {
-      return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-    }
-
-    // =====================
-    //  Odbieranie (ODSZYFROWANIE)
-    // =====================
+    // ==========================================
+    // 3. ODBIERANIE I ODSZYFROWYWANIE
+    // ==========================================
     socket.on("chat message", (msg) => {
-      const strong = document.createElement("strong");
-      strong.textContent = msg.user + ": ";
-
       const span = document.createElement("span");
       let decryptedText = "";
       let isDecryptionSuccess = false;
 
       try {
-        // ODSZYFROWANIE
         const bytes = CryptoJS.AES.decrypt(msg.text, secretKey);
         decryptedText = bytes.toString(CryptoJS.enc.Utf8);
 
         if (decryptedText) {
           isDecryptionSuccess = true;
         } else {
-          // Pusty wynik oznacza błędne hasło (algorytm AES tak działa)
-          decryptedText = "🔒 [Nie można odczytać - błędne hasło]";
+          decryptedText = "🔒 [Wiadomość zaszyfrowana innym hasłem]";
         }
       } catch (e) {
-        decryptedText = "❌ [Błąd danych]";
+        decryptedText = "❌ [Błąd deszyfracji]";
       }
 
-      // Bezpieczne wyświetlanie HTML
+      // Bezpieczeństwo i Linkify
       let safe = escapeHTML(decryptedText);
+      
+      // Automatyczne linki
+      const urlPattern = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+      safe = safe.replace(urlPattern, '<a href="$1" target="_blank" class="chat-link">$1</a>');
 
-      // Kolorowanie wzmianek @nick (tylko jeśli udało się odszyfrować)
+      // Mentions @nick
       if (isDecryptionSuccess) {
-        safe = safe.replace(
-          /@([\p{L}\d_]+)/gu,
-          '<span class="mention">@$1</span>'
-        );
+        safe = safe.replace(/@([\p{L}\d_]+)/gu, '<span class="mention">@$1</span>');
       } else {
-        // Styl dla błędnego hasła
         span.style.color = "#e74c3c";
         span.style.fontStyle = "italic";
       }
 
       span.innerHTML = safe;
 
+      const strong = document.createElement("strong");
+      strong.textContent = msg.user + ": ";
+
       const frag = document.createDocumentFragment();
       frag.appendChild(strong);
       frag.appendChild(span);
 
       appendMessage(frag, msg.user === nickname ? "self" : "");
-
-      // Powiadomienia (tylko dla poprawnie odszyfrowanych)
-      if (
-        document.hidden &&
-        msg.user !== nickname &&
-        isDecryptionSuccess &&
-        Notification.permission === "granted"
-      ) {
-        new Notification(`Nowa wiadomość od ${msg.user}`, {
-          body: decryptedText,
-          icon: "logo.png"
-        });
-      }
     });
 
-    // =====================
-    //  Inne zdarzenia (Lista userów, Systemowe)
-    // =====================
-    socket.on("user list", (users) => {
-      const list = document.getElementById("user-list");
-      list.innerHTML = "";
-      users.forEach(u => {
-        const li = document.createElement("li");
-        li.textContent = u === nickname ? `${u} (Ty)` : u;
-        list.appendChild(li);
-      });
-    });
-
-    let typingUsers = new Set();
-    const typingIndicator = document.getElementById("typing-indicator");
-
-    socket.on("typing", (nick) => {
-      typingUsers.add(nick);
-      typingIndicator.textContent = [...typingUsers].join(", ") + " pisze...";
-    });
-
-    socket.on("stop typing", (nick) => {
-      typingUsers.delete(nick);
-      typingIndicator.textContent =
-        typingUsers.size > 0
-          ? [...typingUsers].join(", ") + " pisze..."
-          : "";
-    });
-
-    // Wiadomości systemowe (Ktoś dołączył/wyszedł)
-    function appendSystemMessage(text) {
-      const span = document.createElement("span");
-      span.textContent = text;
-      appendMessage(span, "system");
+    // ==========================================
+    // POMOCNICZE FUNKCJE UI
+    // ==========================================
+    function escapeHTML(text) {
+      const p = document.createElement('p');
+      p.textContent = text;
+      return p.innerHTML;
     }
 
-    socket.on("user joined", (nick) => {
-      appendSystemMessage(`${nick} dołączył do czatu`);
+    function appendMessage(content, className = "") {
+      const msgList = document.getElementById("messages");
+      const li = document.createElement("li");
+      if (className) li.classList.add(className);
+      li.appendChild(content);
+      msgList.appendChild(li);
+      msgList.scrollTop = msgList.scrollHeight;
+    }
+
+    // Lista użytkowników
+    socket.on("user list", (users) => {
+      const list = document.getElementById("user-list");
+      list.innerHTML = users.map(u => `<li>${u === nickname ? u + " (Ty)" : u}</li>`).join("");
     });
 
-    socket.on("user left", (nick) => {
-      appendSystemMessage(`${nick} opuścił czat`);
+    // Wskaźnik pisania
+    const inputMsg = document.getElementById("message-input");
+    inputMsg.addEventListener("input", () => {
+      socket.emit(inputMsg.value ? "typing" : "stop typing", nickname);
     });
 
-    // Przycisk powiadomień
-    const notifyBtn = document.getElementById("notify-btn");
-    notifyBtn.addEventListener("click", () => {
-      Notification.requestPermission().then((perm) => {
-        if (perm === "granted") {
-          notifyBtn.textContent = "Powiadomienia włączone";
-        } else {
-          alert("Brak zgody na powiadomienia w przeglądarce.");
-        }
+    socket.on("typing", (nick) => {
+      document.getElementById("typing-indicator").textContent = nick + " pisze...";
+    });
+
+    socket.on("stop typing", () => {
+      document.getElementById("typing-indicator").textContent = "";
+    });
+
+    // Systemowe powiadomienia
+    socket.on("user joined", (nick) => appendSystemMsg(`${nick} dołączył do pokoju`));
+    socket.on("user left", (nick) => appendSystemMsg(`${nick} opuścił pokój`));
+
+    function appendSystemMsg(text) {
+      const li = document.createElement("li");
+      li.className = "system";
+      li.textContent = text;
+      document.getElementById("messages").appendChild(li);
+    }
+
+    // Powiadomienia przeglądarkowe
+    document.getElementById("notify-btn").addEventListener("click", () => {
+      Notification.requestPermission().then(p => {
+        if (p === "granted") alert("Powiadomienia włączone!");
       });
     });
-
   </script>
 </body>
 </html>
