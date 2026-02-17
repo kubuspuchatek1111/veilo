@@ -40,6 +40,29 @@ body {
   color: #ffffff;
   font-size: 24px;
 }
+/* === Linki na ekranie logowania === */
+#nickname-screen a {
+  color: #4caf50; /* Twój główny zielony */
+  text-decoration: none;
+  font-size: 0.85rem;
+  margin-top: 15px;
+  display: inline-block;
+  transition: color 0.2s ease, opacity 0.2s ease;
+  opacity: 0.8;
+}
+
+#nickname-screen a:hover {
+  color: #81c784; /* Jaśniejszy zielony przy najechaniu */
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Jeśli link jest w paragrafie, np. <p>Kliknij <a href="...">tutaj</a></p> */
+#nickname-screen p {
+  font-size: 0.9rem;
+  color: #888;
+  margin-top: 10px;
+}
 
 /* WAŻNE: Dodałem #secret-key, aby pole hasła też było stylowane */
 #nickname-input, 
