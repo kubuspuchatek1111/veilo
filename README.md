@@ -2,7 +2,7 @@
 
 Veilo to lekka aplikacja czatu stawiająca na prywatność, wykorzystująca szyfrowanie **End-to-End (E2EE)** oraz unikalną izolację pokojów opartą na hashowaniu. Dzięki wbudowanemu **REST API**, administratorzy mogą monitorować serwer i wysyłać komunikaty systemowe.
 
-![Veilo UI](https://via.placeholder.com/800x400?text=Veilo+Interface+Preview)
+
 
 ## 🚀 Nowości w wersji 2.1 (Ostatnia aktualizacja)
 - **Admin Broadcast API**: Możliwość zdalnego wysyłania komunikatów systemowych do konkretnych pokojów.
