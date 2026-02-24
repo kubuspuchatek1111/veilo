@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Veilo - Secure Chat</title>
+  <title>Veilo - Secure Messaging</title>
   <link rel="icon" href="logo.png" type="image/png">
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
@@ -12,35 +12,33 @@
 <body>
 
   <div id="nickname-screen">
-    <img src="logo.png" width="50" height="50" alt="Logo" onerror="this.style.display='none'">
+    <img src="logo.png" width="60" alt="Logo">
     <h2>Veilo Chat</h2>
-    <p id="api-stats" style="font-size: 0.8rem; color: #555; margin-bottom: 20px;">Łączenie z API...</p>
+    <p id="stats-bar" style="font-size: 0.8rem; color: #777;">Łączenie z serwerem...</p>
     
     <input type="text" id="nickname-input" placeholder="Twój nick..." maxlength="20" />
     <input type="password" id="secret-key" placeholder="Hasło pokoju..." style="margin-top: 10px;" />
     
-    <button onclick="enterChat()">Dołącz</button>
+    <button onclick="enterChat()">Wchodzę</button>
     <button onclick="window.location.href='generator.html';" style="background:none; border:1px solid #4caf50; color:#4caf50; margin-top:10px;">
-      Generator klucza
+        Generator haseł
     </button>
   </div>
 
   <div id="chat-screen" style="display: none;">
     <div id="sidebar">
-      <h3>Ludzie w pokoju</h3>
+      <h3>Aktywni</h3>
       <ul id="user-list"></ul>
-      <button id="notify-btn" class="settings-btn">Włącz powiadomienia</button>
+      <button id="notify-btn" class="settings-btn">Powiadomienia</button>
     </div>
 
     <div id="chat-main">
-      <div class="header">
-        Veilo <span id="room-id" style="font-size: 0.7rem; color: #555; font-weight: normal; margin-left: 10px;"></span>
-      </div>
+      <div class="header">Veilo E2EE <span id="room-tag" style="opacity: 0.5; font-size: 0.7rem;"></span></div>
       <ul id="messages"></ul>
       <div id="typing-indicator"></div>
       <form id="message-form">
-        <input type="text" id="message-input" placeholder="Wiadomość..." autocomplete="off" />
-        <button type="submit">Wyślij</button>
+        <input type="text" id="message-input" placeholder="Napisz coś..." autocomplete="off" />
+        <button type="submit">Wysłano</button>
       </form>
     </div>
   </div>
@@ -50,85 +48,84 @@
     const socket = io();
     let nickname = "", secretKey = "", room = "";
 
-    // Pobieranie statystyk z API
-    async function fetchStats() {
+    // Pobieranie danych z API Status
+    async function updateStats() {
       try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        document.getElementById('api-stats').textContent = `Online: ${data.usersOnline} | Pokoje: ${data.activeRooms}`;
-      } catch (e) { console.log("API offline"); }
+        const r = await fetch('/api/status');
+        const d = await r.json();
+        document.getElementById('stats-bar').textContent = `Użytkowników: ${d.usersOnline} | Pokoje: ${d.activeRooms}`;
+      } catch(e) {}
     }
-    setInterval(fetchStats, 10000);
-    fetchStats();
+    setInterval(updateStats, 5000);
+    updateStats();
 
     function enterChat() {
-      const nInp = document.getElementById("nickname-input");
-      const kInp = document.getElementById("secret-key");
-      if (!nInp.value || !kInp.value) return alert("Podaj nick i hasło!");
+      const n = document.getElementById("nickname-input").value.trim();
+      const k = document.getElementById("secret-key").value.trim();
+      if(!n || !k) return alert("Wpisz dane!");
 
-      nickname = nInp.value.trim();
-      secretKey = kInp.value.trim();
-      room = CryptoJS.SHA256(secretKey).toString(); // Izolacja pokoju
+      nickname = n;
+      secretKey = k;
+      room = CryptoJS.SHA256(secretKey).toString();
 
       document.getElementById("nickname-screen").style.display = "none";
       document.getElementById("chat-screen").style.display = "flex";
-      document.getElementById("room-id").textContent = `#${room.substring(0,8)}`;
+      document.getElementById("room-tag").textContent = "#" + room.substring(0,6);
 
       socket.emit("join", { nickname, room });
-      document.getElementById("message-input").focus();
     }
 
     document.getElementById("message-form").addEventListener("submit", (e) => {
       e.preventDefault();
-      const input = document.getElementById("message-input");
-      if (!input.value.trim()) return;
+      const inp = document.getElementById("message-input");
+      if(!inp.value) return;
 
-      const encrypted = CryptoJS.AES.encrypt(input.value, secretKey).toString();
-      socket.emit("chat message", { user: nickname, text: encrypted, room });
-      socket.emit("stop typing", nickname);
-      input.value = "";
+      const crypted = CryptoJS.AES.encrypt(inp.value, secretKey).toString();
+      socket.emit("chat message", { user: nickname, text: crypted, room });
+      inp.value = "";
     });
 
     socket.on("chat message", (msg) => {
       const li = document.createElement("li");
-      if (msg.user === nickname) li.classList.add("self");
-
-      try {
-        const bytes = CryptoJS.AES.decrypt(msg.text, secretKey);
-        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-        
-        let content = decrypted || "🔒 [Zaszyfrowane]";
-        let safe = escapeHTML(content);
-
-        // Linkify & Mentions
-        const urlRegex = /(\b(https?):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
-        safe = safe.replace(urlRegex, '<a href="$1" target="_blank" class="chat-link">$1</a>');
-        safe = safe.replace(/@([\w]+)/g, '<span class="mention">@$1</span>');
-
-        li.innerHTML = `<strong>${msg.user}:</strong> <span>${safe}</span>`;
-        if (!decrypted) li.querySelector('span').style.color = '#ff4444';
-
-      } catch (e) {
-        li.innerHTML = `<strong>${msg.user}:</strong> <span style="color:red">Błąd szyfrowania</span>`;
+      if(msg.user === nickname) li.classList.add("self");
+      
+      let finalMsg = "";
+      
+      // LOGIKA ODBIORU: System (z API) czy Zaszyfrowane (od kolegi)?
+      if (msg.isSystem) {
+          finalMsg = `<span style="color: #ff9800;">[SYSTEM] ${msg.text}</span>`;
+      } else {
+          try {
+              const bytes = CryptoJS.AES.decrypt(msg.text, secretKey);
+              const dec = bytes.toString(CryptoJS.enc.Utf8);
+              if(!dec) throw new Error();
+              
+              let safe = escapeHTML(dec);
+              // Linkify
+              safe = safe.replace(/(\bhttps?:\/\/\S+)/ig, '<a href="$1" target="_blank" class="chat-link">$1</a>');
+              finalMsg = `<strong>${msg.user}:</strong> ${safe}`;
+          } catch(e) {
+              finalMsg = `<strong style="color:red">${msg.user}:</strong> <span style="opacity:0.5">🔒 Zaszyfrowane innym hasłem</span>`;
+          }
       }
 
+      li.innerHTML = finalMsg;
       document.getElementById("messages").appendChild(li);
-      const mList = document.getElementById("messages");
-      mList.scrollTop = mList.scrollHeight;
+      document.getElementById("messages").scrollTop = 99999;
     });
 
-    function escapeHTML(str) {
-      const p = document.createElement('p');
-      p.textContent = str;
-      return p.innerHTML;
+    function escapeHTML(s) {
+      const t = document.createElement('t');
+      t.textContent = s;
+      return t.innerHTML;
     }
 
-    // Lista użytkowników i powiadomienia systemowe
-    socket.on("user list", (users) => {
-      document.getElementById("user-list").innerHTML = users.map(u => `<li>${u}</li>`).join("");
+    socket.on("user list", l => {
+      document.getElementById("user-list").innerHTML = l.map(u => `<li>${u}</li>`).join("");
     });
-    socket.on("user joined", (n) => appendSys(`${n} dołączył`));
-    socket.on("user left", (n) => appendSys(`${n} wyszedł`));
+
+    socket.on("user joined", n => appendSys(`${n} dołączył`));
+    socket.on("user left", n => appendSys(`${n} wyszedł`));
 
     function appendSys(t) {
       const li = document.createElement("li");
@@ -137,16 +134,10 @@
       document.getElementById("messages").appendChild(li);
     }
 
-    // Pisanie...
-    const msgInp = document.getElementById("message-input");
-    msgInp.addEventListener("input", () => {
-      socket.emit(msgInp.value ? "typing" : "stop typing", nickname);
-    });
-    socket.on("typing", (n) => { document.getElementById("typing-indicator").textContent = `${n} pisze...`; });
+    const mI = document.getElementById("message-input");
+    mI.oninput = () => socket.emit(mI.value ? "typing" : "stop typing", nickname);
+    socket.on("typing", n => { document.getElementById("typing-indicator").textContent = n + " pisze..."; });
     socket.on("stop typing", () => { document.getElementById("typing-indicator").textContent = ""; });
-
-    // Notyfikacje
-    document.getElementById("notify-btn").onclick = () => Notification.requestPermission();
   </script>
 </body>
 </html>
