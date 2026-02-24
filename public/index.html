@@ -8,6 +8,22 @@
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <style>
+    /* Styl dla przycisku kopiowania */
+    .copy-btn {
+      background: none;
+      border: none;
+      color: #4caf50;
+      cursor: pointer;
+      font-size: 0.8rem;
+      margin-left: 5px;
+      padding: 2px 5px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .copy-btn:hover { background: rgba(76, 175, 80, 0.1); }
+    .copy-btn:active { transform: scale(0.9); }
+  </style>
 </head>
 <body>
 
@@ -33,12 +49,16 @@
     </div>
 
     <div id="chat-main">
-      <div class="header">Veilo E2EE <span id="room-tag" style="opacity: 0.5; font-size: 0.7rem;"></span></div>
+      <div class="header">
+        Veilo E2EE 
+        <span id="room-tag" style="opacity: 0.5; font-size: 0.7rem; margin-left: 10px;"></span>
+        <button id="copy-btn-ui" class="copy-btn" onclick="copyRoomHash()" title="Kopiuj pełny hash pokoju">📋 Kopiuj</button>
+      </div>
       <ul id="messages"></ul>
       <div id="typing-indicator"></div>
       <form id="message-form">
         <input type="text" id="message-input" placeholder="Napisz coś..." autocomplete="off" />
-        <button type="submit">Wysłano</button>
+        <button type="submit">Wyślij</button>
       </form>
     </div>
   </div>
@@ -48,7 +68,7 @@
     const socket = io();
     let nickname = "", secretKey = "", room = "";
 
-    // Pobieranie danych z API Status
+    // API Status
     async function updateStats() {
       try {
         const r = await fetch('/api/status');
@@ -59,6 +79,19 @@
     setInterval(updateStats, 5000);
     updateStats();
 
+    // FUNKCJA KOPIOWANIA
+    function copyRoomHash() {
+      if (!room) return;
+      navigator.clipboard.writeText(room).then(() => {
+        const btn = document.getElementById('copy-btn-ui');
+        const originalText = btn.textContent;
+        btn.textContent = "✅ Skopiowano!";
+        setTimeout(() => { btn.textContent = originalText; }, 2000);
+      }).catch(err => {
+        alert("Błąd kopiowania: " + err);
+      });
+    }
+
     function enterChat() {
       const n = document.getElementById("nickname-input").value.trim();
       const k = document.getElementById("secret-key").value.trim();
@@ -66,10 +99,13 @@
 
       nickname = n;
       secretKey = k;
+      // Generujemy pełny hash
       room = CryptoJS.SHA256(secretKey).toString();
 
       document.getElementById("nickname-screen").style.display = "none";
       document.getElementById("chat-screen").style.display = "flex";
+      
+      // Pokazujemy tylko skrót, ale pełny room siedzi w pamięci
       document.getElementById("room-tag").textContent = "#" + room.substring(0,6);
 
       socket.emit("join", { nickname, room });
@@ -91,9 +127,8 @@
       
       let finalMsg = "";
       
-      // LOGIKA ODBIORU: System (z API) czy Zaszyfrowane (od kolegi)?
       if (msg.isSystem) {
-          finalMsg = `<span style="color: #ff9800;">[SYSTEM] ${msg.text}</span>`;
+          finalMsg = `<span style="color: #ff9800; font-weight: bold;">[SYSTEM] ${msg.text}</span>`;
       } else {
           try {
               const bytes = CryptoJS.AES.decrypt(msg.text, secretKey);
@@ -101,7 +136,6 @@
               if(!dec) throw new Error();
               
               let safe = escapeHTML(dec);
-              // Linkify
               safe = safe.replace(/(\bhttps?:\/\/\S+)/ig, '<a href="$1" target="_blank" class="chat-link">$1</a>');
               finalMsg = `<strong>${msg.user}:</strong> ${safe}`;
           } catch(e) {
@@ -111,7 +145,7 @@
 
       li.innerHTML = finalMsg;
       document.getElementById("messages").appendChild(li);
-      document.getElementById("messages").scrollTop = 99999;
+      document.getElementById("messages").scrollTop = 999999;
     });
 
     function escapeHTML(s) {
