@@ -63,5 +63,7 @@ public/index.html - Interfejs czatu z logiką szyfrowania.
 public/admin.html - Panel sterowania dla administratora (API Control).
 
 public/style.css - Warstwa wizualna.
+
 ""wersja online pod : veilo.onrender.com""
+
 Created with ❤️ by [kubus_puchatek]
