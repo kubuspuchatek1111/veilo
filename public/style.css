@@ -1,3 +1,37 @@
+:root {
+  --bg-color: #121212;
+  --text-color: #e0e0e0;
+  --panel-bg: #1f1f1f;
+  --sidebar-bg: #252525;
+  --chat-bg: #1e1e1e;
+  --input-bg: #2b2b2b;
+  --border-color: #333;
+  --primary-color: #4caf50;
+  --primary-hover: #45a049;
+  --msg-bg: #2c2c2c;
+  --msg-self-bg: #2e7d32;
+  --accent-color: #ff9800;
+  --header-text: #ffffff;
+  --secondary-text: #888;
+}
+
+.light-theme {
+  --bg-color: #f0f2f5;
+  --text-color: #333;
+  --panel-bg: #ffffff;
+  --sidebar-bg: #f8f9fa;
+  --chat-bg: #ffffff;
+  --input-bg: #f0f2f5;
+  --border-color: #ddd;
+  --primary-color: #2e7d32;
+  --primary-hover: #1b5e20;
+  --msg-bg: #f0f2f5;
+  --msg-self-bg: #4caf50;
+  --accent-color: #f57c00;
+  --header-text: #1a1a1a;
+  --secondary-text: #666;
+}
+
 /* === Ogólne resetowanie i styl === */
 * {
   box-sizing: border-box;
@@ -7,25 +41,28 @@
 }
 
 body {
-  background-color: #121212;
-  color: #e0e0e0;
-  font-size: 16px; /* Zmniejszyłem lekko dla lepszej czytelności */
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-size: 16px;
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 /* === Ekran logowania === */
 #nickname-screen {
-  background: #1f1f1f;
+  background: var(--panel-bg);
   padding: 40px 50px;
   border-radius: 10px;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
   text-align: center;
   display: flex;
-  flex-direction: column; /* Układamy elementy pionowo */
-  gap: 15px; /* Odstęp między inputami */
+  flex-direction: column;
+  /* Układamy elementy pionowo */
+  gap: 15px;
+  /* Odstęp między inputami */
   width: 100%;
   max-width: 400px;
 }
@@ -37,12 +74,14 @@ body {
 
 #nickname-screen h2 {
   margin-bottom: 10px;
-  color: #ffffff;
+  color: var(--header-text);
   font-size: 24px;
 }
+
 /* === Linki na ekranie logowania === */
 #nickname-screen a {
-  color: #4caf50; /* Twój główny zielony */
+  color: var(--primary-color);
+  /* Twój główny zielony */
   text-decoration: none;
   font-size: 0.85rem;
   margin-top: 15px;
@@ -52,7 +91,8 @@ body {
 }
 
 #nickname-screen a:hover {
-  color: #81c784; /* Jaśniejszy zielony przy najechaniu */
+  color: var(--primary-hover);
+  /* Jaśniejszy zielony przy najechaniu */
   opacity: 1;
   text-decoration: underline;
 }
@@ -60,20 +100,20 @@ body {
 /* Jeśli link jest w paragrafie, np. <p>Kliknij <a href="...">tutaj</a></p> */
 #nickname-screen p {
   font-size: 0.9rem;
-  color: #888;
+  color: var(--secondary-text);
   margin-top: 10px;
 }
 
 /* WAŻNE: Dodałem #secret-key, aby pole hasła też było stylowane */
-#nickname-input, 
-#room-select, 
+#nickname-input,
+#room-select,
 #secret-key {
   padding: 12px;
   width: 100%;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
   border-radius: 5px;
-  background-color: #2b2b2b;
-  color: #fff;
+  background-color: var(--input-bg);
+  color: var(--text-color);
   font-size: 16px;
   outline: none;
   transition: border 0.3s;
@@ -81,12 +121,12 @@ body {
 
 #nickname-input:focus,
 #secret-key:focus {
-  border-color: #4caf50;
+  border-color: var(--primary-color);
 }
 
 #nickname-screen button {
   padding: 12px 24px;
-  background-color: #4caf50;
+  background-color: var(--primary-color);
   border: none;
   border-radius: 5px;
   color: white;
@@ -98,7 +138,7 @@ body {
 }
 
 #nickname-screen button:hover {
-  background-color: #45a049;
+  background-color: var(--primary-hover);
 }
 
 /* === Ekran czatu === */
@@ -107,24 +147,24 @@ body {
   width: 90vw;
   height: 90vh;
   max-width: 1200px;
-  background-color: #1e1e1e;
+  background-color: var(--chat-bg);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
 /* === Sidebar użytkowników === */
 #sidebar {
   width: 250px;
-  background-color: #252525;
+  background-color: var(--sidebar-bg);
   padding: 20px;
-  border-right: 1px solid #333;
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
 }
 
 #sidebar h3 {
-  color: #888;
+  color: var(--secondary-text);
   margin-bottom: 15px;
   font-size: 14px;
   text-transform: uppercase;
@@ -140,19 +180,20 @@ body {
 #user-list li {
   margin: 8px 0;
   padding: 5px 10px;
-  color: #ccc;
+  color: var(--text-color);
   font-size: 15px;
   border-radius: 4px;
 }
 
 #user-list li:hover {
-  background-color: #333;
+  background-color: var(--input-bg);
 }
 
 /* Przycisk powiadomień w sidebarze */
-#notify-btn {
-  background-color: #333;
-  color: #ccc;
+#notify-btn,
+.settings-nav-btn {
+  background-color: var(--input-bg);
+  color: var(--text-color);
   border: none;
   padding: 10px;
   border-radius: 5px;
@@ -160,11 +201,13 @@ body {
   font-size: 13px;
   margin-top: 10px;
   transition: 0.2s;
+  text-align: center;
+  text-decoration: none;
 }
 
-#notify-btn:hover {
-  background-color: #444;
-  color: white;
+#notify-btn:hover,
+.settings-nav-btn:hover {
+  background-color: var(--border-color);
 }
 
 /* === Główna część czatu === */
@@ -172,15 +215,15 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #1e1e1e;
+  background-color: var(--chat-bg);
 }
 
 .header {
   padding: 20px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-color);
   font-size: 18px;
   font-weight: 600;
-  color: #e0e0e0;
+  color: var(--header-text);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -204,8 +247,10 @@ body {
   word-wrap: break-word;
   font-size: 15px;
   line-height: 1.5;
-  background-color: #2c2c2c;
-  align-self: flex-start; /* Wiadomości innych po lewej */
+  background-color: var(--msg-bg);
+  color: var(--text-color);
+  align-self: flex-start;
+  /* Wiadomości innych po lewej */
   animation: fadeIn 0.3s ease-in;
 }
 
@@ -219,21 +264,23 @@ body {
 
 /* Wiadomości wysłane przez Ciebie */
 #messages li.self {
-  align-self: flex-end; /* Twoje po prawej */
-  background-color: #2e7d32; /* Ciemniejszy zielony */
+  align-self: flex-end;
+  /* Twoje po prawej */
+  background-color: var(--msg-self-bg);
   color: white;
-  text-align: left; /* Tekst wewnątrz dymka nadal do lewej */
+  text-align: left;
+  /* Tekst wewnątrz dymka nadal do lewej */
 }
 
 #messages li.self strong {
-  color: #a5d6a7;
+  color: #e0e0e0;
 }
 
 /* Wiadomości systemowe */
 #messages li.system {
   align-self: center;
   background: none;
-  color: #666;
+  color: var(--secondary-text);
   font-size: 13px;
   font-style: italic;
   padding: 5px;
@@ -262,29 +309,29 @@ body {
 #message-form {
   display: flex;
   padding: 20px;
-  background-color: #252525;
-  border-top: 1px solid #333;
+  background-color: var(--sidebar-bg);
+  border-top: 1px solid var(--border-color);
 }
 
 #message-form input {
   flex: 1;
   padding: 12px 15px;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
   border-radius: 20px;
-  background-color: #1e1e1e;
-  color: white;
+  background-color: var(--input-bg);
+  color: var(--text-color);
   font-size: 15px;
   outline: none;
 }
 
 #message-form input:focus {
-  border-color: #555;
+  border-color: var(--primary-color);
 }
 
 #message-form button {
   padding: 10px 20px;
   margin-left: 10px;
-  background-color: #4caf50;
+  background-color: var(--primary-color);
   border: none;
   border-radius: 20px;
   color: white;
@@ -295,18 +342,83 @@ body {
 }
 
 #message-form button:hover {
-  background-color: #45a049;
+  background-color: var(--primary-hover);
 }
 
 /* === Animacje === */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === Ekran ustawień === */
+#settings-screen {
+  display: none;
+  width: 90vw;
+  height: 90vh;
+  max-width: 1200px;
+  background-color: var(--chat-bg);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  flex-direction: column;
+}
+
+#settings-main {
+  flex: 1;
+  padding: 40px;
+  overflow-y: auto;
+}
+
+.settings-group {
+  margin-bottom: 30px;
+}
+
+.settings-group h4 {
+  margin-bottom: 15px;
+  color: var(--header-text);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.theme-options {
+  display: flex;
+  gap: 20px;
+}
+
+.theme-btn {
+  padding: 15px 25px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: 0.3s;
+  font-weight: 600;
+}
+
+.theme-btn.active {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+  color: white;
+}
+
+.theme-btn:hover:not(.active) {
+  border-color: var(--primary-color);
 }
 
 /* === Responsywność === */
 @media screen and (max-width: 768px) {
-  #chat-screen {
+
+  #chat-screen,
+  #settings-screen {
     flex-direction: column;
     width: 100%;
     height: 100%;
@@ -315,27 +427,33 @@ body {
 
   #sidebar {
     width: 100%;
-    height: 60px; /* Zwijamy sidebar na mobilkach */
+    height: 60px;
+    /* Zwijamy sidebar na mobilkach */
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
     padding: 10px 20px;
     border-right: none;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--border-color);
     overflow: hidden;
   }
 
-  #sidebar h3, #user-list, #notify-btn {
-    display: none; /* Ukrywamy listę userów na telefonie dla prostoty */
+  #sidebar h3,
+  #user-list,
+  #notify-btn,
+  .settings-nav-btn {
+    display: none;
+    /* Ukrywamy listę userów na telefonie dla prostoty */
   }
-  
+
   #sidebar::after {
     content: "Veilo Mobile";
     color: white;
     font-weight: bold;
   }
 
-  #chat-main {
+  #chat-main,
+  #settings-main {
     height: calc(100% - 60px);
   }
 }
