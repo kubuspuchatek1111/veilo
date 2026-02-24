@@ -20,7 +20,7 @@ Status api pod: veilo.onrender.com/api/status
 
 1. Sklonuj repozytorium:
    ```bash
-   git clone [https://github.com/TwojLogin/veilo.git](https://github.com/TwojLogin/veilo.git)
+   git clone [https://github.com/kubuspuchatek1111/veilo.git](https://github.com/kubuspuchatek1111/veilo.git)
 Zainstaluj zależności:
 
 Bash
