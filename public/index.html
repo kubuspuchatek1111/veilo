@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Veilo - Secure Messaging</title>
   <link rel="icon" href="logo.png" type="image/png">
   <link rel="stylesheet" href="style.css" />
@@ -21,23 +22,31 @@
       border-radius: 4px;
       transition: background 0.2s;
     }
-    .copy-btn:hover { background: rgba(76, 175, 80, 0.1); }
-    .copy-btn:active { transform: scale(0.9); }
+
+    .copy-btn:hover {
+      background: rgba(76, 175, 80, 0.1);
+    }
+
+    .copy-btn:active {
+      transform: scale(0.9);
+    }
   </style>
 </head>
+
 <body>
 
   <div id="nickname-screen">
     <img src="logo.png" width="60" alt="Logo">
     <h2>Veilo Chat</h2>
     <p id="stats-bar" style="font-size: 0.8rem; color: #777;">Łączenie z serwerem...</p>
-    
+
     <input type="text" id="nickname-input" placeholder="Twój nick..." maxlength="20" />
     <input type="password" id="secret-key" placeholder="Hasło pokoju..." style="margin-top: 10px;" />
-    
+
     <button onclick="enterChat()">Wchodzę</button>
-    <button onclick="window.location.href='generator.html';" style="background:none; border:1px solid #4caf50; color:#4caf50; margin-top:10px;">
-        Generator haseł
+    <button onclick="window.location.href='generator.html';"
+      style="background:none; border:1px solid #4caf50; color:#4caf50; margin-top:10px;">
+      Generator haseł
     </button>
   </div>
 
@@ -45,14 +54,16 @@
     <div id="sidebar">
       <h3>Aktywni</h3>
       <ul id="user-list"></ul>
-      <button id="notify-btn" class="settings-btn">Powiadomienia</button>
+      <button id="notify-btn">Powiadomienia</button>
+      <button class="settings-nav-btn" onclick="showSettings()">⚙️ Ustawienia</button>
     </div>
 
     <div id="chat-main">
       <div class="header">
-        Veilo E2EE 
+        Veilo E2EE
         <span id="room-tag" style="opacity: 0.5; font-size: 0.7rem; margin-left: 10px;"></span>
-        <button id="copy-btn-ui" class="copy-btn" onclick="copyRoomHash()" title="Kopiuj pełny hash pokoju">📋 Kopiuj</button>
+        <button id="copy-btn-ui" class="copy-btn" onclick="copyRoomHash()" title="Kopiuj pełny hash pokoju">📋
+          Kopiuj</button>
       </div>
       <ul id="messages"></ul>
       <div id="typing-indicator"></div>
@@ -60,6 +71,27 @@
         <input type="text" id="message-input" placeholder="Napisz coś..." autocomplete="off" />
         <button type="submit">Wyślij</button>
       </form>
+    </div>
+  </div>
+
+  <div id="settings-screen">
+    <div class="header">
+      Ustawienia
+      <button class="copy-btn" onclick="showChat()">⬅️ Powrót</button>
+    </div>
+    <div id="settings-main">
+      <div class="settings-group">
+        <h4>Motyw</h4>
+        <div class="theme-options">
+          <button id="theme-dark" class="theme-btn" onclick="setTheme('dark')">Ciemny</button>
+          <button id="theme-light" class="theme-btn" onclick="setTheme('light')">Jasny</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h4>O aplikacji</h4>
+        <p>Veilo v1.1 - Secure E2EE Messaging</p>
+      </div>
     </div>
   </div>
 
@@ -74,7 +106,7 @@
         const r = await fetch('/api/status');
         const d = await r.json();
         document.getElementById('stats-bar').textContent = `Użytkowników: ${d.usersOnline} | Pokoje: ${d.activeRooms}`;
-      } catch(e) {}
+      } catch (e) { }
     }
     setInterval(updateStats, 5000);
     updateStats();
@@ -95,7 +127,7 @@
     function enterChat() {
       const n = document.getElementById("nickname-input").value.trim();
       const k = document.getElementById("secret-key").value.trim();
-      if(!n || !k) return alert("Wpisz dane!");
+      if (!n || !k) return alert("Wpisz dane!");
 
       nickname = n;
       secretKey = k;
@@ -104,9 +136,9 @@
 
       document.getElementById("nickname-screen").style.display = "none";
       document.getElementById("chat-screen").style.display = "flex";
-      
+
       // Pokazujemy tylko skrót, ale pełny room siedzi w pamięci
-      document.getElementById("room-tag").textContent = "#" + room.substring(0,6);
+      document.getElementById("room-tag").textContent = "#" + room.substring(0, 6);
 
       socket.emit("join", { nickname, room });
     }
@@ -114,7 +146,7 @@
     document.getElementById("message-form").addEventListener("submit", (e) => {
       e.preventDefault();
       const inp = document.getElementById("message-input");
-      if(!inp.value) return;
+      if (!inp.value) return;
 
       const crypted = CryptoJS.AES.encrypt(inp.value, secretKey).toString();
       socket.emit("chat message", { user: nickname, text: crypted, room });
@@ -123,24 +155,24 @@
 
     socket.on("chat message", (msg) => {
       const li = document.createElement("li");
-      if(msg.user === nickname) li.classList.add("self");
-      
+      if (msg.user === nickname) li.classList.add("self");
+
       let finalMsg = "";
-      
+
       if (msg.isSystem) {
-          finalMsg = `<span style="color: #ff9800; font-weight: bold;">[SYSTEM] ${msg.text}</span>`;
+        finalMsg = `<span style="color: #ff9800; font-weight: bold;">[SYSTEM] ${msg.text}</span>`;
       } else {
-          try {
-              const bytes = CryptoJS.AES.decrypt(msg.text, secretKey);
-              const dec = bytes.toString(CryptoJS.enc.Utf8);
-              if(!dec) throw new Error();
-              
-              let safe = escapeHTML(dec);
-              safe = safe.replace(/(\bhttps?:\/\/\S+)/ig, '<a href="$1" target="_blank" class="chat-link">$1</a>');
-              finalMsg = `<strong>${msg.user}:</strong> ${safe}`;
-          } catch(e) {
-              finalMsg = `<strong style="color:red">${msg.user}:</strong> <span style="opacity:0.5">🔒 Zaszyfrowane innym hasłem</span>`;
-          }
+        try {
+          const bytes = CryptoJS.AES.decrypt(msg.text, secretKey);
+          const dec = bytes.toString(CryptoJS.enc.Utf8);
+          if (!dec) throw new Error();
+
+          let safe = escapeHTML(dec);
+          safe = safe.replace(/(\bhttps?:\/\/\S+)/ig, '<a href="$1" target="_blank" class="chat-link">$1</a>');
+          finalMsg = `<strong>${msg.user}:</strong> ${safe}`;
+        } catch (e) {
+          finalMsg = `<strong style="color:red">${msg.user}:</strong> <span style="opacity:0.5">🔒 Zaszyfrowane innym hasłem</span>`;
+        }
       }
 
       li.innerHTML = finalMsg;
@@ -172,6 +204,35 @@
     mI.oninput = () => socket.emit(mI.value ? "typing" : "stop typing", nickname);
     socket.on("typing", n => { document.getElementById("typing-indicator").textContent = n + " pisze..."; });
     socket.on("stop typing", () => { document.getElementById("typing-indicator").textContent = ""; });
+
+    // NAVIGATION & THEME
+    function showSettings() {
+      document.getElementById("chat-screen").style.display = "none";
+      document.getElementById("settings-screen").style.display = "flex";
+    }
+
+    function showChat() {
+      document.getElementById("settings-screen").style.display = "none";
+      document.getElementById("chat-screen").style.display = "flex";
+    }
+
+    function setTheme(theme) {
+      if (theme === 'light') {
+        document.body.classList.add('light-theme');
+        document.getElementById('theme-light').classList.add('active');
+        document.getElementById('theme-dark').classList.remove('active');
+      } else {
+        document.body.classList.remove('light-theme');
+        document.getElementById('theme-dark').classList.add('active');
+        document.getElementById('theme-light').classList.remove('active');
+      }
+      localStorage.setItem('veilo-theme', theme);
+    }
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('veilo-theme') || 'dark';
+    setTheme(savedTheme);
   </script>
 </body>
+
 </html>
