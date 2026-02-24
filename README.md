@@ -19,18 +19,14 @@ Status api pod: veilo.onrender.com/api/status
 ## 🛠️ Instalacja i uruchomienie
 
 1. Sklonuj repozytorium:
-   ```bash
    git clone [https://github.com/kubuspuchatek1111/veilo.git](https://github.com/kubuspuchatek1111/veilo.git)
+
 Zainstaluj zależności:
-
-Bash
-
 npm install
+
 Uruchom serwer:
-
-Bash
-
 node server.js
+
 Aplikacja dostępna pod adresem: http://localhost:3000
 
 📡 Dokumentacja API
@@ -47,8 +43,6 @@ Wysyła jawną wiadomość systemową do wybranego pokoju.
 Endpoint: POST /api/broadcast
 
 Body (JSON):
-
-JSON
 
 {
   "roomHash": "pełny_64_znakowy_hash",
