@@ -152,28 +152,37 @@
       socket.emit("chat message", { user: nickname, text: crypted, room });
       inp.value = "";
     });
+socket.on("chat message", (msg) => {
+  const li = document.createElement("li");
+  if (msg.user === nickname) li.classList.add("self");
 
-    socket.on("chat message", (msg) => {
-      const li = document.createElement("li");
-      if (msg.user === nickname) li.classList.add("self");
+  let finalMsg = "";
 
-      let finalMsg = "";
+  // 1. Sprawdzamy, czy to wiadomość systemowa z API
+  if (msg.isSystem) {
+    // Zmieniamy [SYSTEM] na [${msg.user}], aby wyświetlać nazwę podaną w API
+    finalMsg = `<span style="color: #ff9800; font-weight: bold;">[${msg.user}] ${msg.text}</span>`;
+  } else {
+    // 2. Standardowa logika dla zaszyfrowanych wiadomości użytkowników
+    try {
+      const bytes = CryptoJS.AES.decrypt(msg.text, secretKey);
+      const dec = bytes.toString(CryptoJS.enc.Utf8);
+      if (!dec) throw new Error();
 
-      if (msg.isSystem) {
-        finalMsg = `<span style="color: #ff9800; font-weight: bold;">[SYSTEM] ${msg.text}</span>`;
-      } else {
-        try {
-          const bytes = CryptoJS.AES.decrypt(msg.text, secretKey);
-          const dec = bytes.toString(CryptoJS.enc.Utf8);
-          if (!dec) throw new Error();
+      let safe = escapeHTML(dec);
+      safe = safe.replace(/(\bhttps?:\/\/\S+)/ig, '<a href="$1" target="_blank" class="chat-link">$1</a>');
+      finalMsg = `<strong>${msg.user}:</strong> ${safe}`;
+    } catch (e) {
+      // Błąd deszyfracji (np. inne hasło do pokoju)
+      finalMsg = `<strong style="color:red">${msg.user}:</strong> <span style="opacity:0.5">🔒 Zaszyfrowane innym hasłem</span>`;
+    }
+  }
 
-          let safe = escapeHTML(dec);
-          safe = safe.replace(/(\bhttps?:\/\/\S+)/ig, '<a href="$1" target="_blank" class="chat-link">$1</a>');
-          finalMsg = `<strong>${msg.user}:</strong> ${safe}`;
-        } catch (e) {
-          finalMsg = `<strong style="color:red">${msg.user}:</strong> <span style="opacity:0.5">🔒 Zaszyfrowane innym hasłem</span>`;
-        }
-      }
+  // Reszta kodu bez zmian (dodawanie do listy i scrollowanie)
+  li.innerHTML = finalMsg;
+  document.getElementById("messages").appendChild(li);
+  document.getElementById("messages").scrollTop = 999999;
+});
 
       li.innerHTML = finalMsg;
       document.getElementById("messages").appendChild(li);
