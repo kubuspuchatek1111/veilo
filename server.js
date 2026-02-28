@@ -31,29 +31,38 @@ app.get('/api/status', (req, res) => {
 // ZDALNE STEROWANIE: Wysyłanie wiadomości pod specjalny link
 // Użycie: POST na /api/broadcast
 app.post('/api/broadcast', (req, res) => {
-    const { roomHash, message, adminKey } = req.body;
+    // 1. Pobieramy dane z żądania (w tym nasz nowy nickname)
+    const { roomHash, message, adminKey, nickname } = req.body;
 
-    // ZMIEŃ TO NA SWOJE HASŁO:
+    // 2. TWOJE HASŁO (Zmień je tutaj na własne!)
     const SECRET_ADMIN_KEY = "veilo123";
 
+    // 3. Sprawdzamy klucz bezpieczeństwa
     if (adminKey !== SECRET_ADMIN_KEY) {
         return res.status(403).json({ error: "Błędny klucz admina" });
     }
 
+    // 4. Sprawdzamy, czy przesłano treść i ID pokoju
     if (!roomHash || !message) {
         return res.status(400).json({ error: "Brak pokoju lub wiadomości" });
     }
 
-    // Wysyłamy wiadomość do konkretnego pokoju jako "SYSTEM"
+    // 5. Ustalamy nazwę nadawcy (jeśli pusta, dajemy SYSTEM)
+    const senderName = nickname || "SYSTEM";
+
+    // 6. Wysyłamy wiadomość przez Socket.io do konkretnego pokoju
     io.to(roomHash).emit('chat message', {
-        user: "SYSTEM",
+        user: senderName,
         text: message,
-        room: roomHash,
-        isSystem: true // Flaga, żeby frontend nie próbował tego odszyfrować
+        isSystem: true // Dzięki tej fladze klient nie będzie próbował odszyfrować tej wiadomości
     });
 
-    console.log(`[API] Wysłano komunikat do pokoju ${roomHash}`);
-    res.json({ success: true });
+    // 7. Logujemy akcję w konsoli serwera i wysyłamy odpowiedź do nadawcy API
+    console.log(`[API] Komunikat wysłany jako ${senderName} do pokoju ${roomHash}`);
+    res.json({ 
+        success: true, 
+        sentAs: senderName 
+    });
 });
 
 // ==========================================
