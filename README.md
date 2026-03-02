@@ -13,6 +13,7 @@ Status api pod: veilo.onrender.com/api/status
 
 ## 🌟 Nowości w wersji 2.2 (Ostatnia aktualizacja)
 - **Motyw**: Możliwość zmiany motywu (jasny/ciemny) w ustawieniach (domyślnie ciemny)
+- **API**: Spieprzyłem XD
 
 ## 🔐 Bezpieczeństwo
 * **Szyfrowanie AES**: Wszystkie wiadomości są szyfrowane po stronie klienta za pomocą biblioteki `CryptoJS`. Serwer nigdy nie widzi treści wiadomości w formie jawnej.
