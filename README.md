@@ -10,7 +10,6 @@ Status api pod: veilo.onrender.com/api/status
 - **Easy-Copy Room Hash**: Nowy przycisk w UI pozwalający jednym kliknięciem skopiować pełny hash pokoju do schowka.
 - **System Messaging**: Rozróżnianie wiadomości szyfrowanych od jawnych komunikatów administratora.
 - **Live Stats**: Automatyczne odświeżanie statystyk serwera (użytkownicy online, aktywne pokoje) na ekranie logowania.
-
 ## 🔐 Bezpieczeństwo
 * **Szyfrowanie AES**: Wszystkie wiadomości są szyfrowane po stronie klienta za pomocą biblioteki `CryptoJS`. Serwer nigdy nie widzi treści wiadomości w formie jawnej.
 * **Izolacja SHA-256**: Identyfikator pokoju jest hashem SHA-256 hasła wejściowego. Nawet jeśli ktoś wejdzie na ten sam serwer, nie zobaczy Twojego pokoju bez znajomości identycznego hasła.
@@ -60,4 +59,4 @@ public/style.css - Warstwa wizualna.
 
 ""czat online pod : veilo.onrender.com""
 
-Created with ❤️ by [kubus_puchatek]
+Created with ❤️ by [Kubuś ]
