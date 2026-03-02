@@ -5,11 +5,15 @@ Status api pod: veilo.onrender.com/api/status
 
 
 
-## 🚀 Nowości w wersji 2.1 (Ostatnia aktualizacja)
+## 🚀 Nowości w wersji 2.1
 - **Admin Broadcast API**: Możliwość zdalnego wysyłania komunikatów systemowych do konkretnych pokojów.
 - **Easy-Copy Room Hash**: Nowy przycisk w UI pozwalający jednym kliknięciem skopiować pełny hash pokoju do schowka.
 - **System Messaging**: Rozróżnianie wiadomości szyfrowanych od jawnych komunikatów administratora.
 - **Live Stats**: Automatyczne odświeżanie statystyk serwera (użytkownicy online, aktywne pokoje) na ekranie logowania.
+
+## 🌟 Nowości w wersji 2.2 (Ostatnia aktualizacja)
+- **Motyw** Możliwość zmiany motywu (jasny/ciemny) w ustawieniach (domyślnie ciemny)
+
 ## 🔐 Bezpieczeństwo
 * **Szyfrowanie AES**: Wszystkie wiadomości są szyfrowane po stronie klienta za pomocą biblioteki `CryptoJS`. Serwer nigdy nie widzi treści wiadomości w formie jawnej.
 * **Izolacja SHA-256**: Identyfikator pokoju jest hashem SHA-256 hasła wejściowego. Nawet jeśli ktoś wejdzie na ten sam serwer, nie zobaczy Twojego pokoju bez znajomości identycznego hasła.
