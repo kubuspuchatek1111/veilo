@@ -6,18 +6,20 @@ const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: {
+        origin: "*", // Ważne dla uniknięcia problemów z CORS
+        methods: ["GET", "POST"]
+    }
+});
 
 app.use(express.json());
+// Upewnij się, że pliki index.html i generator.html są w folderze /public
 app.use(express.static(path.join(__dirname, 'public')));
 
 const users = {}; 
 
-// ==========================================
-// VEILO API
-// ==========================================
-
-// Status i statystyki
+// API Stats
 app.get('/api/stats', (req, res) => {
     const allUsers = Object.values(users);
     const rooms = [...new Set(allUsers.map(u => u.room))];
@@ -28,22 +30,10 @@ app.get('/api/stats', (req, res) => {
     });
 });
 
-// Server-side Key Gen (opcjonalne, dla botów)
-app.post('/api/keygen', (req, res) => {
-    const { password } = req.body;
-    if (!password) return res.status(400).json({ error: "No password" });
-    const salt = new Date().toISOString().split('T')[0];
-    crypto.pbkdf2(password, salt, 100000, 32, 'sha256', (err, key) => {
-        res.json({ key: key.toString('hex') });
-    });
-});
-
-// ==========================================
-// SOCKET.IO
-// ==========================================
-
+// Socket.io Logic
 io.on('connection', (socket) => {
     socket.on('join', ({ nickname, room }) => {
+        if (!nickname || !room) return;
         socket.join(room);
         users[socket.id] = { nickname, room };
         socket.to(room).emit('user joined', nickname);
@@ -51,17 +41,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('chat message', (msg) => {
-        io.to(msg.room).emit('chat message', msg);
-    });
-
-    socket.on('typing', (nick) => {
-        const user = users[socket.id];
-        if (user) socket.to(user.room).emit('typing', nick);
-    });
-
-    socket.on('stop typing', (nick) => {
-        const user = users[socket.id];
-        if (user) socket.to(user.room).emit('stop typing', nick);
+        if (msg.room) {
+            io.to(msg.room).emit('chat message', msg);
+        }
     });
 
     socket.on('disconnect', () => {
@@ -83,4 +65,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Veilo Core on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server Veilo działa na http://localhost:${PORT}`));
