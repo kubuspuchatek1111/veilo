@@ -18,6 +18,7 @@ Status api pod: veilo.onrender.com/api/stats lub /api/health
 
 ## 🖕 Nowości w wersji 2.3
 - **API**: Naprawione 😃
+
 ## 🔆Nowości w wersji 3.0 (Najnowsza wersja)
 - **Design** Dodałem nowoczesny oraz ładny design
 
