@@ -11,9 +11,12 @@ Status api pod: veilo.onrender.com/api/status
 - **System Messaging**: Rozróżnianie wiadomości szyfrowanych od jawnych komunikatów administratora.
 - **Live Stats**: Automatyczne odświeżanie statystyk serwera (użytkownicy online, aktywne pokoje) na ekranie logowania.
 
-## 🌟 Nowości w wersji 2.2 (Ostatnia aktualizacja)
+## 🌟 Nowości w wersji 2.2
 - **Motyw**: Możliwość zmiany motywu (jasny/ciemny) w ustawieniach (domyślnie ciemny)
 - **API**: Spieprzyłem XD
+
+## 🖕 Nowości w wersji 2.3 (Najnowsza wersja)
+- **API**: Naprawione 😃
 
 ## 🔐 Bezpieczeństwo
 * **Szyfrowanie AES**: Wszystkie wiadomości są szyfrowane po stronie klienta za pomocą biblioteki `CryptoJS`. Serwer nigdy nie widzi treści wiadomości w formie jawnej.
