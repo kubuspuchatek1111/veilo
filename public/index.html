@@ -1,92 +1,116 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Veilo - Secure Messaging</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
-  <div id="nickname-screen">
-    <h2>Veilo Chat</h2>
-    <input type="text" id="nickname-input" placeholder="Twój nick..." maxlength="20" />
-    <input type="password" id="secret-key" placeholder="Hasło pokoju (Klucz E2EE)..." />
-    <button onclick="enterChat()">Wchodzę</button>
-  </div>
+    <div id="nickname-screen">
+        <img src="logo.png" width="60" alt="Logo">
+        <h2>Veilo Chat</h2>
+        <p id="api-stats" style="font-size: 0.8rem; color: #777;">Ładowanie statystyk...</p>
 
-  <div id="chat-screen" style="display: none;">
-    <div id="sidebar">
-        <h3>Aktywni</h3>
-        <ul id="user-list"></ul>
+        <input type="text" id="nickname-input" placeholder="Twój nick..." maxlength="20">
+        <input type="password" id="secret-key" placeholder="Hasło pokoju (Klucz E2EE)..." style="margin-top: 10px;">
+
+        <button onclick="enterChat()" style="margin-top: 20px;">Wchodzę</button>
+        
+        <button onclick="window.location.href='generator.html';" 
+                style="background:none; border:1px solid #4caf50; color:#4caf50; margin-top:10px;">
+            Otwórz Generator Kluczy
+        </button>
     </div>
-    <div id="chat-main">
-        <div class="header">Veilo E2EE <span id="room-info"></span></div>
-        <ul id="messages"></ul>
-        <div id="typing-indicator"></div>
-        <form id="message-form">
-            <input type="text" id="message-input" placeholder="Napisz bezpieczną wiadomość..." />
-            <button type="submit">Wyślij</button>
-        </form>
+
+    <div id="chat-screen" style="display: none;">
+        <div id="sidebar">
+            <h3>Aktywni</h3>
+            <ul id="user-list"></ul>
+        </div>
+
+        <div id="chat-main">
+            <div class="header">
+                Veilo E2EE
+                <span id="status-dot" style="color: #4caf50; margin-left: 10px;">● Secure</span>
+            </div>
+            <ul id="messages"></ul>
+            <div id="typing-indicator"></div>
+            <form id="message-form">
+                <input type="text" id="message-input" placeholder="Napisz coś..." autocomplete="off">
+                <button type="submit">Wyślij</button>
+            </form>
+        </div>
     </div>
-  </div>
 
-  <script>
-    const socket = io();
-    let currentNickname = "";
-    let roomPassword = "";
-    const roomID = "global_room"; // Możesz to zmienić na dynamiczne
+    <script>
+        const socket = io();
+        let currentNickname = "";
+        let roomPassword = "";
+        const roomID = "main_room"; // Możesz dodać input na Room ID
 
-    function enterChat() {
-        currentNickname = document.getElementById('nickname-input').value;
-        roomPassword = document.getElementById('secret-key').value;
-
-        if(!currentNickname || !roomPassword) return alert("Podaj nick i hasło!");
-
-        document.getElementById('nickname-screen').style.display = 'none';
-        document.getElementById('chat-screen').style.display = 'flex';
-
-        socket.emit('join', { nickname: currentNickname, room: roomID });
-    }
-
-    // Wysyłanie wiadomości (Szyfrowanie)
-    document.getElementById('message-form').onsubmit = (e) => {
-        e.preventDefault();
-        const input = document.getElementById('message-input');
-        if(!input.value) return;
-
-        // E2EE: Szyfrujemy treść kluczem pokoju przed wysłaniem
-        const encrypted = CryptoJS.AES.encrypt(input.value, roomPassword).toString();
-
-        socket.emit('chat message', {
-            room: roomID,
-            nickname: currentNickname,
-            text: encrypted
-        });
-        input.value = '';
-    };
-
-    // Odbieranie wiadomości (Deszyfrowanie)
-    socket.on('chat message', (msg) => {
-        const li = document.createElement('li');
-        try {
-            // Próba odszyfrowania
-            const bytes = CryptoJS.AES.decrypt(msg.text, roomPassword);
-            const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-            
-            li.textContent = `${msg.nickname}: ${decryptedText || "[Błąd deszyfrowania - zły klucz]"}`;
-        } catch(e) {
-            li.textContent = `${msg.nickname}: [Wiadomość zaszyfrowana]`;
+        // Pobieranie statystyk z Twojego nowego API
+        async function fetchStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                document.getElementById('api-stats').innerText = `Online: ${data.online} | Pokoje: ${data.rooms}`;
+            } catch (e) {
+                document.getElementById('api-stats').innerText = "Serwer offline";
+            }
         }
-        document.getElementById('messages').appendChild(li);
-    });
+        setInterval(fetchStats, 5000);
+        fetchStats();
 
-    socket.on('user list', (list) => {
-        const ul = document.getElementById('user-list');
-        ul.innerHTML = list.map(u => `<li>${u}</li>`).join('');
-    });
-  </script>
+        function enterChat() {
+            currentNickname = document.getElementById('nickname-input').value;
+            roomPassword = document.getElementById('secret-key').value;
+
+            if(!currentNickname || !roomPassword) return alert("Wpisz nick i hasło pokoju!");
+
+            document.getElementById('nickname-screen').style.display = 'none';
+            document.getElementById('chat-screen').style.display = 'flex';
+
+            socket.emit('join', { nickname: currentNickname, room: roomID });
+        }
+
+        // Szyfrowanie i wysyłanie
+        document.getElementById('message-form').onsubmit = (e) => {
+            e.preventDefault();
+            const input = document.getElementById('message-input');
+            if(!input.value) return;
+
+            const encrypted = CryptoJS.AES.encrypt(input.value, roomPassword).toString();
+
+            socket.emit('chat message', {
+                room: roomID,
+                nickname: currentNickname,
+                text: encrypted
+            });
+            input.value = '';
+        };
+
+        // Odbieranie i deszyfrowanie
+        socket.on('chat message', (msg) => {
+            const li = document.createElement('li');
+            try {
+                const bytes = CryptoJS.AES.decrypt(msg.text, roomPassword);
+                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                
+                li.innerHTML = `<b>${msg.nickname}:</b> ${decryptedText || "<i>[Błędny klucz pokoju]</i>"}`;
+            } catch(e) {
+                li.innerHTML = `<b>${msg.nickname}:</b> 🔒 <i>[Zaszyfrowane]</i>`;
+            }
+            document.getElementById('messages').appendChild(li);
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        socket.on('user list', (list) => {
+            document.getElementById('user-list').innerHTML = list.map(u => `<li>${u}</li>`).join('');
+        });
+    </script>
 </body>
 </html>
