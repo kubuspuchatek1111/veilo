@@ -18,12 +18,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 const users = {}; 
 const rooms = {}; 
 
-// === SERWOWANIE STRON VIDEO ===
-app.get('/video', (req, res) => {
+// === SERWOWANIE VIDEO PAGE ===
+app.get('/video.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'video.html'));
 });
 
-// === REST API (bez zmian) ===
+// === REST API ===
 app.post('/api/join', (req, res) => {
     const { nickname, room, password } = req.body;
     if (!nickname || !room || !password) {
@@ -67,11 +67,10 @@ app.post('/api/generate-hash', (req, res) => {
     res.json({ password, roomHash, joinUrl: `${req.headers.origin}/?room=${roomHash}` });
 });
 
-// === SOCKET.IO Z VIDEO ===
+// === SOCKET.IO + WEBRTC ===
 io.on('connection', (socket) => {
     console.log('🔌 Połączenie:', socket.id);
 
-    // TEXT CHAT (bez zmian)
     socket.on('join', ({ nickname, room, password }) => {
         if (!rooms[room]) {
             rooms[room] = { password, users: [] };
@@ -87,20 +86,21 @@ io.on('connection', (socket) => {
         socket.to(room).emit('user joined', nickname);
         socket.emit('joined', { room, users: rooms[room].users });
         updateRoomUsers(room);
+        console.log(`✅ ${nickname} w ${room}`);
     });
 
-    // === WEBRTC VIDEO SIGNALLING ===
+    // === WEBRTC SIGNALLING ===
     socket.on('webrtc-offer', (data) => {
-        socket.to(data.room).emit('webrtc-answer', {
-            from: socket.id,
-            offer: data.offer
+        socket.to(data.target).emit('webrtc-offer-received', {
+            offer: data.offer,
+            from: socket.id
         });
     });
 
     socket.on('webrtc-answer', (data) => {
-        socket.to(data.target).emit('webrtc-offer-received', {
-            from: socket.id,
-            answer: data.answer
+        socket.to(data.target).emit('webrtc-answer-received', {
+            answer: data.answer,
+            from: socket.id
         });
     });
 
@@ -111,6 +111,7 @@ io.on('connection', (socket) => {
         });
     });
 
+    // VIDEO/AUDIO TOGGLES
     socket.on('toggle-video', (data) => {
         socket.to(data.room).emit('user-video-toggle', {
             userId: socket.id,
@@ -125,7 +126,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // TEXT CHAT
     socket.on('chat message', (msg) => {
         const user = users[socket.id];
         if (user && msg.room === user.room && msg.password === rooms[msg.room]?.password) {
@@ -164,5 +164,5 @@ setInterval(() => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`🚀 Veilo Chat + Video działa na porcie ${PORT}`);
+    console.log(`🚀 Veilo Chat + Video na porcie ${PORT}`);
 });
