@@ -1,4 +1,4 @@
-/* === ZMIENNE KOLORÓW (Nowoczesna paleta) === */
+/* === ZMIENNE KOLORÓW === */
 :root {
   --bg-gradient: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
   --glass-bg: rgba(255, 255, 255, 0.05);
@@ -7,7 +7,6 @@
   --text-secondary: #94a3b8;
   --accent: #10b981;
   --accent-hover: #059669;
-  --danger: #ef4444;
   --purple-glow: #8b5cf6;
   --success: #22c55e;
   --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -25,7 +24,7 @@
   --accent-hover: #047857;
 }
 
-/* === RESET + BASE === */
+/* === RESET === */
 * {
   margin: 0;
   padding: 0;
@@ -43,10 +42,9 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
-  position: relative;
 }
 
-/* === EFEKTY PARALAKSY / ANIMACJE === */
+/* === ANIMACJE TŁA === */
 body::before {
   content: '';
   position: fixed;
@@ -69,7 +67,13 @@ body::before {
   66% { transform: translateY(-10px) rotate(240deg); }
 }
 
-/* === LOGOWANIE - GLASSMORPHISM === */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* === EKRAN LOGOWANIA === */
 #nickname-screen {
   background: var(--glass-bg);
   backdrop-filter: var(--backdrop-blur);
@@ -128,6 +132,12 @@ body::before {
   margin-bottom: 0.5rem;
 }
 
+#nickname-screen p {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
 #nickname-input, #room-password {
   width: 100%;
   padding: 1rem 1.5rem;
@@ -157,8 +167,10 @@ body::before {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 600;
   margin-top: 1rem;
+  word-break: break-all;
 }
 
+/* === PRZYCISK DOŁĄCZ === */
 #join-btn {
   width: 100%;
   padding: 1.25rem;
@@ -195,7 +207,104 @@ body::before {
   box-shadow: var(--shadow-lg);
 }
 
-/* === CZAT - NOWOCZESNY LAYOUT === */
+.btn-shine {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.4), transparent 70%);
+  transform: rotate(45deg);
+  transition: all 0.6s;
+}
+
+#join-btn:hover .btn-shine {
+  animation: shine 0.6s ease-in-out;
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+/* === PRZYCISK GENERATORA === */
+.generator-section {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.generator-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.75rem;
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.2) 0%, 
+    rgba(16, 185, 129, 0.2) 50%, 
+    rgba(59, 130, 246, 0.2) 100%);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.generator-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, 
+    var(--purple-glow), 
+    var(--accent), 
+    var(--purple-glow));
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  border-radius: 16px;
+}
+
+.generator-btn:hover::before {
+  opacity: 1;
+}
+
+.generator-btn:hover {
+  transform: translateY(-4px) scale(1.02);
+  color: white !important;
+  box-shadow: 0 20px 40px rgba(139, 92, 246, 0.3);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.generator-btn:hover .btn-icon {
+  animation: spin 0.6s ease-in-out;
+}
+
+.generator-btn:hover .btn-arrow {
+  transform: translateX(4px);
+}
+
+.btn-icon {
+  font-size: 1.1rem;
+  transition: transform 0.3s ease;
+}
+
+.btn-arrow {
+  font-size: 1rem;
+  font-weight: 800;
+  transition: transform 0.3s ease;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(180deg); }
+}
+
+/* === CZAT === */
 #chat-screen {
   display: flex;
   width: clamp(90vw, 1200px, 95vw);
@@ -209,7 +318,6 @@ body::before {
   border: 1px solid var(--glass-border);
 }
 
-/* === SIDEBAR === */
 #sidebar {
   width: 280px;
   background: rgba(30, 41, 59, 0.7);
@@ -271,7 +379,13 @@ body::before {
   transform: translateX(4px);
 }
 
-/* === HEADER POKOJU === */
+#chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .header {
   padding: 1.5rem 2rem;
   background: rgba(15, 23, 42, 0.8);
@@ -338,14 +452,6 @@ body::before {
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
-}
-
-/* === OBSZAR WIADOMOŚCI === */
-#chat-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: rgba(255, 255, 255, 0.02);
 }
 
 #messages {
@@ -415,6 +521,12 @@ body::before {
   opacity: 0.8;
 }
 
+.message-time {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-top: 0.25rem;
+}
+
 #messages li.system {
   align-self: center;
   background: transparent;
@@ -433,7 +545,6 @@ body::before {
   font-weight: 500;
 }
 
-/* === FORMULARZ === */
 #message-form {
   padding: 1.5rem 2rem;
   background: rgba(15, 23, 42, 0.8);
@@ -474,6 +585,11 @@ body::before {
   font-size: 0.95rem;
   transition: all 0.3s ease;
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #message-form button:hover {
@@ -513,17 +629,4 @@ body::before {
   #messages li {
     max-width: 85%;
   }
-}
-
-/* === LOADING / SKELETON === */
-.skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.1) 25%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.1) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 12px;
-}
-
-@keyframes loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
 }
