@@ -19,8 +19,11 @@ Status api pod: veilo.onrender.com/api/stats lub /api/health
 ## 🖕 Nowości w wersji 2.3
 - **API**: Naprawione 😃
 
-## 🔆Nowości w wersji 3.0 (Najnowsza wersja)
+## 🔆Nowości w wersji 3.0
 - **Design** Dodałem nowoczesny oraz ładny design
+
+## ❤️Nowości w wersji 3.1 (Najnowsza wersja)
+- **Audio&Video** Dodałem rozmowy na żywo (Beta)
 
 ## 🔐 Bezpieczeństwo
 * **Szyfrowanie AES**: Wszystkie wiadomości są szyfrowane po stronie klienta za pomocą biblioteki `CryptoJS`. Serwer nigdy nie widzi treści wiadomości w formie jawnej.
