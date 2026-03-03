@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Veilo Chat</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <!-- Ekran logowania -->
@@ -45,14 +43,22 @@
 
         <!-- Główna część czatu -->
         <div id="chat-main">
-            <!-- Header -->
+            <!-- Header Z VIDEO PRZYCISKAMI -->
             <div class="header">
-                <div id="room-name">
-                    Pokój: <span id="current-room">-</span>
+                <div id="room-info">
+                    <div id="room-name">Pokój: <span id="current-room">-</span></div>
                 </div>
-                <button id="copy-room-btn" title="Skopiuj pełny hash pokoju" disabled>
-                    📋 Kopiuj hash
-                </button>
+                <div class="header-actions">
+                    <button id="copy-room-btn" title="Skopiuj hash" disabled>
+                        📋 Kopiuj
+                    </button>
+                    <button id="video-call-btn" class="call-btn" title="Rozmowa wideo" style="display: none;">
+                        📹 Video
+                    </button>
+                    <button id="audio-call-btn" class="call-btn" title="Rozmowa audio" style="display: none;">
+                        🔊 Audio
+                    </button>
+                </div>
             </div>
 
             <!-- Wiadomości -->
@@ -65,7 +71,6 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
                     </svg>
-                    Wyślij
                 </button>
             </form>
         </div>
@@ -95,6 +100,14 @@
                     if (e.key === 'Enter') this.joinRoom();
                 });
 
+                // VIDEO/AUDIO BUTTONS
+                document.getElementById('video-call-btn').onclick = () => {
+                    window.open(`/video.html?room=${this.currentRoom}`, '_blank');
+                };
+                document.getElementById('audio-call-btn').onclick = () => {
+                    window.open(`/video.html?room=${this.currentRoom}&audio=1`, '_blank');
+                };
+
                 document.getElementById('copy-room-btn').onclick = () => this.copyRoomHash();
                 document.getElementById('message-form').onsubmit = (e) => {
                     e.preventDefault();
@@ -112,13 +125,11 @@
                 const salt = "veilo-salt-2026";
                 let hash = 0;
                 const str = salt + password.toLowerCase().trim();
-                
                 for (let i = 0; i < str.length; i++) {
                     const char = str.charCodeAt(i);
                     hash = ((hash << 5) - hash) + char;
                     hash = hash & hash;
                 }
-                
                 return Math.abs(hash).toString(36).substring(0, 8).toUpperCase();
             }
 
@@ -165,12 +176,10 @@
                     btn.disabled = true;
                     
                     setTimeout(() => {
-                        btn.innerHTML = '📋 Kopiuj hash';
+                        btn.innerHTML = '📋 Kopiuj';
                         btn.classList.remove('copied');
                         btn.disabled = false;
                     }, 2000);
-                }).catch(() => {
-                    alert('Pełny link: ' + fullUrl);
                 });
             }
 
@@ -191,6 +200,19 @@
             updateUserList(users) {
                 const ul = document.getElementById('user-list');
                 ul.innerHTML = users.map(user => `<li>${user}</li>`).join('');
+                
+                // POKAZUJ PRZYCISKI VIDEO GDY SĄ INNI UŻYTKOWNICY
+                const userCount = users.length;
+                const videoBtn = document.getElementById('video-call-btn');
+                const audioBtn = document.getElementById('audio-call-btn');
+                
+                if (userCount > 0) {
+                    videoBtn.style.display = 'flex';
+                    audioBtn.style.display = 'flex';
+                } else {
+                    videoBtn.style.display = 'none';
+                    audioBtn.style.display = 'none';
+                }
             }
 
             addChatMessage(msg) {
