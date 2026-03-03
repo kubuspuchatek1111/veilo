@@ -95,23 +95,15 @@
     </div>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
+<script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     let nickname = "", secretKey = "", room = "";
 
-    // API Status
-    async function updateStats() {
-      try {
-        const r = await fetch('/api/status');
-        const d = await r.json();
-        document.getElementById('stats-bar').textContent = `Użytkowników: ${d.usersOnline} | Pokoje: ${d.activeRooms}`;
-      } catch (e) { }
-    }
-    setInterval(updateStats, 5000);
-    updateStats();
+    // Pasek statusu - teraz statyczny, bo usunęliśmy API statusu
+    document.getElementById('stats-bar').textContent = `Połączenie E2EE aktywne`;
 
-    // FUNKCJA KOPIOWANIA
+    // FUNKCJA KOPIOWANIA HASHU
     function copyRoomHash() {
       if (!room) return;
       navigator.clipboard.writeText(room).then(() => {
@@ -131,13 +123,13 @@
 
       nickname = n;
       secretKey = k;
-      // Generujemy pełny hash
+      // Generujemy pełny hash pokoju na podstawie hasła
       room = CryptoJS.SHA256(secretKey).toString();
 
       document.getElementById("nickname-screen").style.display = "none";
       document.getElementById("chat-screen").style.display = "flex";
 
-      // Pokazujemy tylko skrót, ale pełny room siedzi w pamięci
+      // Pokazujemy tylko skrót ID pokoju
       document.getElementById("room-tag").textContent = "#" + room.substring(0, 6);
 
       socket.emit("join", { nickname, room });
@@ -152,37 +144,29 @@
       socket.emit("chat message", { user: nickname, text: crypted, room });
       inp.value = "";
     });
-socket.on("chat message", (msg) => {
-  const li = document.createElement("li");
-  if (msg.user === nickname) li.classList.add("self");
 
-  let finalMsg = "";
+    socket.on("chat message", (msg) => {
+      const li = document.createElement("li");
+      if (msg.user === nickname) li.classList.add("self");
 
-  // 1. Sprawdzamy, czy to wiadomość systemowa z API
-  if (msg.isSystem) {
-    // Zmieniamy [SYSTEM] na [${msg.user}], aby wyświetlać nazwę podaną w API
-    finalMsg = `<span style="color: #ff9800; font-weight: bold;">[${msg.user}] ${msg.text}</span>`;
-  } else {
-    // 2. Standardowa logika dla zaszyfrowanych wiadomości użytkowników
-    try {
-      const bytes = CryptoJS.AES.decrypt(msg.text, secretKey);
-      const dec = bytes.toString(CryptoJS.enc.Utf8);
-      if (!dec) throw new Error();
+      let finalMsg = "";
 
-      let safe = escapeHTML(dec);
-      safe = safe.replace(/(\bhttps?:\/\/\S+)/ig, '<a href="$1" target="_blank" class="chat-link">$1</a>');
-      finalMsg = `<strong>${msg.user}:</strong> ${safe}`;
-    } catch (e) {
-      // Błąd deszyfracji (np. inne hasło do pokoju)
-      finalMsg = `<strong style="color:red">${msg.user}:</strong> <span style="opacity:0.5">🔒 Zaszyfrowane innym hasłem</span>`;
-    }
-  }
+      // Obsługa wiadomości systemowych (np. z API, jeśli kiedyś przywrócisz)
+      if (msg.isSystem) {
+        finalMsg = `<span style="color: #ff9800; font-weight: bold;">[${msg.user}] ${msg.text}</span>`;
+      } else {
+        try {
+          const bytes = CryptoJS.AES.decrypt(msg.text, secretKey);
+          const dec = bytes.toString(CryptoJS.enc.Utf8);
+          if (!dec) throw new Error();
 
-  // Reszta kodu bez zmian (dodawanie do listy i scrollowanie)
-  li.innerHTML = finalMsg;
-  document.getElementById("messages").appendChild(li);
-  document.getElementById("messages").scrollTop = 999999;
-});
+          let safe = escapeHTML(dec);
+          safe = safe.replace(/(\bhttps?:\/\/\S+)/ig, '<a href="$1" target="_blank" class="chat-link">$1</a>');
+          finalMsg = `<strong>${msg.user}:</strong> ${safe}`;
+        } catch (e) {
+          finalMsg = `<strong style="color:red">${msg.user}:</strong> <span style="opacity:0.5">🔒 Zaszyfrowane innym hasłem</span>`;
+        }
+      }
 
       li.innerHTML = finalMsg;
       document.getElementById("messages").appendChild(li);
@@ -211,10 +195,16 @@ socket.on("chat message", (msg) => {
 
     const mI = document.getElementById("message-input");
     mI.oninput = () => socket.emit(mI.value ? "typing" : "stop typing", nickname);
-    socket.on("typing", n => { document.getElementById("typing-indicator").textContent = n + " pisze..."; });
-    socket.on("stop typing", () => { document.getElementById("typing-indicator").textContent = ""; });
+    
+    socket.on("typing", n => { 
+      document.getElementById("typing-indicator").textContent = n + " pisze..."; 
+    });
+    
+    socket.on("stop typing", () => { 
+      document.getElementById("typing-indicator").textContent = ""; 
+    });
 
-    // NAVIGATION & THEME
+    // NAWIGACJA I MOTYWY
     function showSettings() {
       document.getElementById("chat-screen").style.display = "none";
       document.getElementById("settings-screen").style.display = "flex";
@@ -238,7 +228,6 @@ socket.on("chat message", (msg) => {
       localStorage.setItem('veilo-theme', theme);
     }
 
-    // Load saved theme
     const savedTheme = localStorage.getItem('veilo-theme') || 'dark';
     setTheme(savedTheme);
   </script>
