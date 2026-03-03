@@ -5,41 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Veilo Chat</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Ekran logowania -->
     <div id="nickname-screen">
-        <img src="logo.png" alt="Veilo Logo" style="width: 80px; height: 80px;">
+        <img src="logo.png" alt="Veilo Logo">
         <h2>Witaj w Veilo Chat</h2>
         <p>Podaj dane do pokoju:</p>
         
         <input type="text" id="nickname-input" placeholder="Twój nick..." maxlength="20">
         <input type="text" id="room-password" placeholder="Hasło pokoju">
-        <button id="join-btn">Dołącz do pokoju</button>
-        <p><a href="generator.html" target="_blank">Stwórz nowy pokój</a></p>
-        <small id="room-hash-display" style="display: none; color: var(--primary-color); font-weight: bold;"></small>
+        
+        <button id="join-btn">
+            <span>Dołącz do pokoju</span>
+            <div class="btn-shine"></div>
+        </button>
+        
+        <div class="generator-section">
+            <a href="generator.html" target="_blank" class="generator-btn">
+                <span class="btn-icon">✨</span>
+                <span class="btn-text">Stwórz nowy pokój</span>
+                <span class="btn-arrow">→</span>
+            </a>
+        </div>
+        
+        <small id="room-hash-display" style="display: none;"></small>
     </div>
 
     <!-- Ekran czatu -->
     <div id="chat-screen" style="display: none;">
+        <!-- Sidebar -->
         <div id="sidebar">
             <h3>Użytkownicy</h3>
             <ul id="user-list"></ul>
         </div>
 
+        <!-- Główna część czatu -->
         <div id="chat-main">
+            <!-- Header -->
             <div class="header">
-                <div id="room-name">Pokój: <span id="current-room">-</span></div>
+                <div id="room-name">
+                    Pokój: <span id="current-room">-</span>
+                </div>
                 <button id="copy-room-btn" title="Skopiuj pełny hash pokoju" disabled>
                     📋 Kopiuj hash
                 </button>
             </div>
 
+            <!-- Wiadomości -->
             <ul id="messages"></ul>
 
+            <!-- Formularz -->
             <form id="message-form">
                 <input id="message-input" placeholder="Wpisz wiadomość..." autocomplete="off">
-                <button type="submit">Wyślij</button>
+                <button type="submit">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
+                    </svg>
+                </button>
             </form>
         </div>
     </div>
@@ -60,37 +86,28 @@
             }
 
             bindEvents() {
-                const joinBtn = document.getElementById('join-btn');
-                const passwordInput = document.getElementById('room-password');
-                const hashDisplay = document.getElementById('room-hash-display');
-
-                joinBtn.onclick = () => this.joinRoom();
-                passwordInput.addEventListener('keypress', (e) => {
+                document.getElementById('join-btn').onclick = () => this.joinRoom();
+                document.getElementById('room-password').addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') this.joinRoom();
                 });
                 document.getElementById('nickname-input').addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') this.joinRoom();
                 });
 
-                // Kopiowanie po dołączeniu
                 document.getElementById('copy-room-btn').onclick = () => this.copyRoomHash();
-
-                // Formularz wiadomości
                 document.getElementById('message-form').onsubmit = (e) => {
                     e.preventDefault();
                     this.sendMessage();
                 };
 
-                // Socket events
                 this.socket.on('user list', (users) => this.updateUserList(users));
                 this.socket.on('user joined', (nick) => this.addSystemMessage(`${nick} dołączył`));
                 this.socket.on('user left', (nick) => this.addSystemMessage(`${nick} opuścił pokój`));
                 this.socket.on('chat message', (msg) => this.addChatMessage(msg));
+                this.socket.on('error', (msg) => this.showError(msg));
             }
 
-            // GENEROWANIE AUTOMATYCZNEGO HASHU Z HASŁA
             generateRoomHash(password) {
-                // Prosty hash: md5-like z salt + password
                 const salt = "veilo-salt-2026";
                 let hash = 0;
                 const str = salt + password.toLowerCase().trim();
@@ -98,10 +115,9 @@
                 for (let i = 0; i < str.length; i++) {
                     const char = str.charCodeAt(i);
                     hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // Konwersja na 32-bit
+                    hash = hash & hash;
                 }
                 
-                // Skrócony do 8 znaków hex + cyfry
                 return Math.abs(hash).toString(36).substring(0, 8).toUpperCase();
             }
 
@@ -110,31 +126,26 @@
                 this.roomPassword = document.getElementById('room-password').value.trim();
                 
                 if (!this.roomPassword) {
-                    alert('Podaj hasło pokoju!');
+                    this.shakeInput('room-password');
                     return;
                 }
 
-                // GENERUJ HASH AUTOMATYCZNIE Z HASŁA
                 this.currentRoom = this.generateRoomHash(this.roomPassword);
                 
                 const hashDisplay = document.getElementById('room-hash-display');
                 hashDisplay.textContent = `Hash pokoju: ${this.currentRoom}`;
                 hashDisplay.style.display = 'block';
 
-                // Zapisz w URL
                 const url = new URL(window.location);
                 url.searchParams.set('room', this.currentRoom);
-                url.searchParams.set('pass', btoa(this.roomPassword)); // Zakodowane hasło
                 window.history.replaceState({}, '', url);
 
-                // Dołącz do pokoju
                 this.socket.emit('join', { 
                     nickname: this.nickname, 
                     room: this.currentRoom,
-                    password: this.roomPassword // Wyślij hasło do walidacji po stronie serwera
+                    password: this.roomPassword 
                 });
                 
-                // Pokaż czat po 500ms (czas na hash)
                 setTimeout(() => {
                     document.getElementById('nickname-screen').style.display = 'none';
                     document.getElementById('chat-screen').style.display = 'flex';
@@ -145,17 +156,20 @@
 
             copyRoomHash() {
                 const btn = document.getElementById('copy-room-btn');
-                navigator.clipboard.writeText(`${window.location.origin}/?room=${this.currentRoom}`).then(() => {
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = '✓ Pełny link!';
-                    btn.style.background = '#4CAF50';
+                const fullUrl = `${window.location.origin}/?room=${this.currentRoom}`;
+                
+                navigator.clipboard.writeText(fullUrl).then(() => {
+                    btn.innerHTML = '✓ Skopiowano!';
+                    btn.classList.add('copied');
                     btn.disabled = true;
                     
                     setTimeout(() => {
-                        btn.innerHTML = originalText;
-                        btn.style.background = '';
+                        btn.innerHTML = '📋 Kopiuj hash';
+                        btn.classList.remove('copied');
                         btn.disabled = false;
                     }, 2000);
+                }).catch(() => {
+                    alert('Pełny link: ' + fullUrl);
                 });
             }
 
@@ -181,7 +195,11 @@
             addChatMessage(msg) {
                 const li = document.createElement('li');
                 li.className = msg.nickname === this.nickname ? 'self' : '';
-                li.innerHTML = `<strong>${msg.nickname}:</strong> ${msg.message}`;
+                li.innerHTML = `
+                    <strong>${msg.nickname}</strong>
+                    <span>${msg.message}</span>
+                    <div class="message-time">${new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                `;
                 document.getElementById('messages').appendChild(li);
                 li.scrollIntoView({ behavior: 'smooth' });
             }
@@ -192,6 +210,18 @@
                 li.textContent = text;
                 document.getElementById('messages').appendChild(li);
                 li.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            showError(msg) {
+                this.addSystemMessage(`❌ ${msg}`);
+            }
+
+            shakeInput(id) {
+                const input = document.getElementById(id);
+                input.style.animation = 'shake 0.5s ease-in-out';
+                setTimeout(() => {
+                    input.style.animation = '';
+                }, 500);
             }
         }
 
