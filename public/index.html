@@ -3,113 +3,256 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Veilo - Secure Messaging</title>
+    <title>Veilo Chat</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-
+    <!-- Ekran logowania -->
     <div id="nickname-screen">
-        <img src="logo.png" width="60" alt="Logo">
-        <h2>Veilo Chat</h2>
-        <p id="api-stats" style="font-size: 0.8rem; color: #777;">Ładowanie statystyk...</p>
-
-        <input type="text" id="nickname-input" placeholder="Twój nick..." maxlength="20">
-        <input type="password" id="secret-key" placeholder="Hasło pokoju (Klucz E2EE)..." style="margin-top: 10px;">
-
-        <button onclick="enterChat()" style="margin-top: 20px;">Wchodzę</button>
+        <img src="logo.png" alt="Veilo Logo" style="width: 80px; height: 80px;">
+        <h2>Witaj w Veilo Chat</h2>
+        <p>Podaj swój nick i dołącz do pokoju:</p>
         
-        <button onclick="window.location.href='generator.html';" 
-                style="background:none; border:1px solid #4caf50; color:#4caf50; margin-top:10px;">
-            Otwórz Generator Kluczy
-        </button>
+        <input type="text" id="nickname-input" placeholder="Twój nick..." maxlength="20">
+        <input type="text" id="room-input" placeholder="Nazwa pokoju (hash)" maxlength="50">
+        <input type="password" id="secret-key" placeholder="Sekretne hasło (opcjonalne)">
+        
+        <button id="join-btn">Dołącz do pokoju</button>
+        <p><a href="generator.html" target="_blank">Generator pokojów</a></p>
     </div>
 
+    <!-- Ekran czatu -->
     <div id="chat-screen" style="display: none;">
+        <!-- Sidebar -->
         <div id="sidebar">
-            <h3>Aktywni</h3>
+            <h3>Użytkownicy</h3>
             <ul id="user-list"></ul>
+            <button id="notify-btn">Powiadomienia</button>
+            <a href="#" class="settings-nav-btn" id="settings-btn">Ustawienia</a>
         </div>
 
+        <!-- Główna część czatu -->
         <div id="chat-main">
+            <!-- Header z kopiowaniem pokoju -->
             <div class="header">
-                Veilo E2EE
-                <span id="status-dot" style="color: #4caf50; margin-left: 10px;">● Secure</span>
+                <div id="room-info">
+                    <div id="room-name">Pokój: <span id="current-room">-</span></div>
+                </div>
+                <button id="copy-room-btn" title="Skopiuj pełny hash pokoju" disabled>
+                    📋 Kopiuj
+                </button>
             </div>
-            <ul id="messages"></ul>
+
+            <!-- Wskaźnik pisania -->
             <div id="typing-indicator"></div>
+
+            <!-- Wiadomości -->
+            <ul id="messages"></ul>
+
+            <!-- Formularz wiadomości -->
             <form id="message-form">
-                <input type="text" id="message-input" placeholder="Napisz coś..." autocomplete="off">
+                <input id="message-input" placeholder="Wpisz wiadomość..." autocomplete="off">
                 <button type="submit">Wyślij</button>
             </form>
         </div>
     </div>
 
+    <!-- Ekran ustawień -->
+    <div id="settings-screen" style="display: none;">
+        <div id="settings-main">
+            <div class="settings-group">
+                <h4>Motyw</h4>
+                <div class="theme-options">
+                    <button class="theme-btn active" data-theme="dark">Ciemny</button>
+                    <button class="theme-btn" data-theme="light">Jasny</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
-        let currentNickname = "";
-        let roomPassword = "";
-        const roomID = "main_room"; // Możesz dodać input na Room ID
-
-        // Pobieranie statystyk z Twojego nowego API
-        async function fetchStats() {
-            try {
-                const res = await fetch('/api/stats');
-                const data = await res.json();
-                document.getElementById('api-stats').innerText = `Online: ${data.online} | Pokoje: ${data.rooms}`;
-            } catch (e) {
-                document.getElementById('api-stats').innerText = "Serwer offline";
+        class VeiloChat {
+            constructor() {
+                this.socket = io();
+                this.currentRoom = '';
+                this.nickname = '';
+                this.isTyping = false;
+                this.init();
             }
-        }
-        setInterval(fetchStats, 5000);
-        fetchStats();
 
-        function enterChat() {
-            currentNickname = document.getElementById('nickname-input').value;
-            roomPassword = document.getElementById('secret-key').value;
+            init() {
+                this.bindEvents();
+                this.loadTheme();
+            }
 
-            if(!currentNickname || !roomPassword) return alert("Wpisz nick i hasło pokoju!");
+            bindEvents() {
+                // Ekran logowania
+                document.getElementById('join-btn').onclick = () => this.joinRoom();
+                document.getElementById('nickname-input').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.joinRoom();
+                });
 
-            document.getElementById('nickname-screen').style.display = 'none';
-            document.getElementById('chat-screen').style.display = 'flex';
+                // Kopiowanie pokoju
+                document.getElementById('copy-room-btn').onclick = () => this.copyRoomHash();
 
-            socket.emit('join', { nickname: currentNickname, room: roomID });
-        }
+                // Formularz wiadomości
+                document.getElementById('message-form').onsubmit = (e) => {
+                    e.preventDefault();
+                    this.sendMessage();
+                };
 
-        // Szyfrowanie i wysyłanie
-        document.getElementById('message-form').onsubmit = (e) => {
-            e.preventDefault();
-            const input = document.getElementById('message-input');
-            if(!input.value) return;
+                // Pisanie
+                const messageInput = document.getElementById('message-input');
+                messageInput.oninput = () => this.handleTyping();
 
-            const encrypted = CryptoJS.AES.encrypt(input.value, roomPassword).toString();
+                // Socket events
+                this.socket.on('user list', (users) => this.updateUserList(users));
+                this.socket.on('user joined', (nick) => this.addSystemMessage(`${nick} dołączył`));
+                this.socket.on('user left', (nick) => this.addSystemMessage(`${nick} opuścił pokój`));
+                this.socket.on('chat message', (msg) => this.addChatMessage(msg));
 
-            socket.emit('chat message', {
-                room: roomID,
-                nickname: currentNickname,
-                text: encrypted
-            });
-            input.value = '';
-        };
+                // Ustawienia
+                document.querySelectorAll('.theme-btn').forEach(btn => {
+                    btn.onclick = () => this.setTheme(btn.dataset.theme);
+                });
+            }
 
-        // Odbieranie i deszyfrowanie
-        socket.on('chat message', (msg) => {
-            const li = document.createElement('li');
-            try {
-                const bytes = CryptoJS.AES.decrypt(msg.text, roomPassword);
-                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+            async joinRoom() {
+                this.nickname = document.getElementById('nickname-input').value.trim() || 'Gość';
+                this.currentRoom = document.getElementById('room-input').value.trim() || 'default';
                 
-                li.innerHTML = `<b>${msg.nickname}:</b> ${decryptedText || "<i>[Błędny klucz pokoju]</i>"}`;
-            } catch(e) {
-                li.innerHTML = `<b>${msg.nickname}:</b> 🔒 <i>[Zaszyfrowane]</i>`;
-            }
-            document.getElementById('messages').appendChild(li);
-            window.scrollTo(0, document.body.scrollHeight);
-        });
+                if (!this.currentRoom) {
+                    alert('Podaj nazwę pokoju!');
+                    return;
+                }
 
-        socket.on('user list', (list) => {
-            document.getElementById('user-list').innerHTML = list.map(u => `<li>${u}</li>`).join('');
+                // Zapisz w URL dla łatwego udostępniania
+                const url = new URL(window.location);
+                url.searchParams.set('room', this.currentRoom);
+                window.history.replaceState({}, '', url);
+
+                // Dołącz do pokoju
+                this.socket.emit('join', { nickname: this.nickname, room: this.currentRoom });
+                
+                // Pokaż ekran czatu
+                document.getElementById('nickname-screen').style.display = 'none';
+                document.getElementById('chat-screen').style.display = 'flex';
+                document.getElementById('current-room').textContent = this.currentRoom;
+                document.getElementById('copy-room-btn').disabled = false;
+            }
+
+            async copyRoomHash() {
+                const btn = document.getElementById('copy-room-btn');
+                try {
+                    await navigator.clipboard.writeText(this.currentRoom);
+                    this.showCopyFeedback(btn);
+                } catch {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = this.currentRoom;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    this.showCopyFeedback(btn);
+                }
+            }
+
+            showCopyFeedback(btn) {
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Skopiowano!';
+                btn.classList.add('copied');
+                btn.disabled = true;
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                    btn.disabled = false;
+                }, 2000);
+            }
+
+            sendMessage() {
+                const input = document.getElementById('message-input');
+                const message = input.value.trim();
+                if (message) {
+                    this.socket.emit('chat message', {
+                        nickname: this.nickname,
+                        message: message,
+                        room: this.currentRoom
+                    });
+                    input.value = '';
+                }
+            }
+
+            handleTyping() {
+                if (!this.isTyping) {
+                    this.isTyping = true;
+                    this.socket.emit('typing', { room: this.currentRoom, nickname: this.nickname });
+                }
+                clearTimeout(this.typingTimeout);
+                this.typingTimeout = setTimeout(() => {
+                    this.isTyping = false;
+                    this.socket.emit('stop typing', { room: this.currentRoom });
+                }, 1000);
+            }
+
+            updateUserList(users) {
+                const ul = document.getElementById('user-list');
+                ul.innerHTML = users.map(user => `<li>${user}</li>`).join('');
+            }
+
+            addChatMessage(msg) {
+                const li = document.createElement('li');
+                li.className = msg.nickname === this.nickname ? 'self' : '';
+                
+                // Wzmianki @nick
+                const highlighted = this.highlightMentions(msg.message);
+                
+                li.innerHTML = `
+                    <strong>${msg.nickname}:</strong>
+                    <span>${highlighted}</span>
+                `;
+                document.getElementById('messages').appendChild(li);
+                li.scrollIntoView();
+            }
+
+            addSystemMessage(text) {
+                const li = document.createElement('li');
+                li.className = 'system';
+                li.textContent = text;
+                document.getElementById('messages').appendChild(li);
+                li.scrollIntoView();
+            }
+
+            highlightMentions(text) {
+                return text.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+            }
+
+            setTheme(theme) {
+                document.body.className = theme + '-theme';
+                localStorage.setItem('veilo-theme', theme);
+                document.querySelectorAll('.theme-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.theme === theme);
+                });
+            }
+
+            loadTheme() {
+                const saved = localStorage.getItem('veilo-theme') || 'dark';
+                this.setTheme(saved);
+            }
+        }
+
+        // Start aplikacji
+        new VeiloChat();
+
+        // Auto-join z URL
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const room = urlParams.get('room');
+            if (room) {
+                document.getElementById('room-input').value = room;
+                document.getElementById('nickname-input').focus();
+            }
         });
     </script>
 </body>
