@@ -11,46 +11,32 @@
     <div id="nickname-screen">
         <img src="logo.png" alt="Veilo Logo" style="width: 80px; height: 80px;">
         <h2>Witaj w Veilo Chat</h2>
-        <p>Podaj swój nick i dołącz do pokoju:</p>
+        <p>Podaj dane do pokoju:</p>
         
         <input type="text" id="nickname-input" placeholder="Twój nick..." maxlength="20">
-        <input type="text" id="room-input" placeholder="Nazwa pokoju (hash)" maxlength="50">
-        <input type="password" id="secret-key" placeholder="Sekretne hasło (opcjonalne)">
-        
+        <input type="text" id="room-password" placeholder="Hasło pokoju">
         <button id="join-btn">Dołącz do pokoju</button>
-        <p><a href="generator.html" target="_blank">Generator pokojów</a></p>
+        <p><a href="generator.html" target="_blank">Stwórz nowy pokój</a></p>
+        <small id="room-hash-display" style="display: none; color: var(--primary-color); font-weight: bold;"></small>
     </div>
 
     <!-- Ekran czatu -->
     <div id="chat-screen" style="display: none;">
-        <!-- Sidebar -->
         <div id="sidebar">
             <h3>Użytkownicy</h3>
             <ul id="user-list"></ul>
-            <button id="notify-btn">Powiadomienia</button>
-            <a href="#" class="settings-nav-btn" id="settings-btn">Ustawienia</a>
         </div>
 
-        <!-- Główna część czatu -->
         <div id="chat-main">
-            <!-- Header z kopiowaniem pokoju (bez "secure") -->
             <div class="header">
-                <div id="room-info">
-                    <div id="room-name">Pokój: <span id="current-room">-</span></div>
-                </div>
-                <!-- PRZYCISK KOPIUJ ZAMIAST "secure" -->
+                <div id="room-name">Pokój: <span id="current-room">-</span></div>
                 <button id="copy-room-btn" title="Skopiuj pełny hash pokoju" disabled>
                     📋 Kopiuj hash
                 </button>
             </div>
 
-            <!-- Wskaźnik pisania -->
-            <div id="typing-indicator"></div>
-
-            <!-- Wiadomości -->
             <ul id="messages"></ul>
 
-            <!-- Formularz wiadomości -->
             <form id="message-form">
                 <input id="message-input" placeholder="Wpisz wiadomość..." autocomplete="off">
                 <button type="submit">Wyślij</button>
@@ -65,21 +51,28 @@
                 this.socket = io();
                 this.currentRoom = '';
                 this.nickname = '';
+                this.roomPassword = '';
                 this.init();
             }
 
             init() {
                 this.bindEvents();
-                this.loadTheme();
             }
 
             bindEvents() {
-                document.getElementById('join-btn').onclick = () => this.joinRoom();
+                const joinBtn = document.getElementById('join-btn');
+                const passwordInput = document.getElementById('room-password');
+                const hashDisplay = document.getElementById('room-hash-display');
+
+                joinBtn.onclick = () => this.joinRoom();
+                passwordInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.joinRoom();
+                });
                 document.getElementById('nickname-input').addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') this.joinRoom();
                 });
 
-                // Kopiowanie pokoju
+                // Kopiowanie po dołączeniu
                 document.getElementById('copy-room-btn').onclick = () => this.copyRoomHash();
 
                 // Formularz wiadomości
@@ -93,50 +86,76 @@
                 this.socket.on('user joined', (nick) => this.addSystemMessage(`${nick} dołączył`));
                 this.socket.on('user left', (nick) => this.addSystemMessage(`${nick} opuścił pokój`));
                 this.socket.on('chat message', (msg) => this.addChatMessage(msg));
+            }
 
-                // Auto-focus
-                document.getElementById('nickname-input').focus();
+            // GENEROWANIE AUTOMATYCZNEGO HASHU Z HASŁA
+            generateRoomHash(password) {
+                // Prosty hash: md5-like z salt + password
+                const salt = "veilo-salt-2026";
+                let hash = 0;
+                const str = salt + password.toLowerCase().trim();
+                
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // Konwersja na 32-bit
+                }
+                
+                // Skrócony do 8 znaków hex + cyfry
+                return Math.abs(hash).toString(36).substring(0, 8).toUpperCase();
             }
 
             joinRoom() {
                 this.nickname = document.getElementById('nickname-input').value.trim() || 'Gość';
-                this.currentRoom = document.getElementById('room-input').value.trim() || 'default';
+                this.roomPassword = document.getElementById('room-password').value.trim();
                 
-                if (!this.currentRoom) {
-                    alert('Podaj nazwę pokoju!');
+                if (!this.roomPassword) {
+                    alert('Podaj hasło pokoju!');
                     return;
                 }
+
+                // GENERUJ HASH AUTOMATYCZNIE Z HASŁA
+                this.currentRoom = this.generateRoomHash(this.roomPassword);
+                
+                const hashDisplay = document.getElementById('room-hash-display');
+                hashDisplay.textContent = `Hash pokoju: ${this.currentRoom}`;
+                hashDisplay.style.display = 'block';
 
                 // Zapisz w URL
                 const url = new URL(window.location);
                 url.searchParams.set('room', this.currentRoom);
+                url.searchParams.set('pass', btoa(this.roomPassword)); // Zakodowane hasło
                 window.history.replaceState({}, '', url);
 
-                // Dołącz
-                this.socket.emit('join', { nickname: this.nickname, room: this.currentRoom });
+                // Dołącz do pokoju
+                this.socket.emit('join', { 
+                    nickname: this.nickname, 
+                    room: this.currentRoom,
+                    password: this.roomPassword // Wyślij hasło do walidacji po stronie serwera
+                });
                 
-                // Pokaż czat
-                document.getElementById('nickname-screen').style.display = 'none';
-                document.getElementById('chat-screen').style.display = 'flex';
-                document.getElementById('current-room').textContent = this.currentRoom;
-                document.getElementById('copy-room-btn').disabled = false;
+                // Pokaż czat po 500ms (czas na hash)
+                setTimeout(() => {
+                    document.getElementById('nickname-screen').style.display = 'none';
+                    document.getElementById('chat-screen').style.display = 'flex';
+                    document.getElementById('current-room').textContent = this.currentRoom;
+                    document.getElementById('copy-room-btn').disabled = false;
+                }, 500);
             }
 
             copyRoomHash() {
                 const btn = document.getElementById('copy-room-btn');
-                navigator.clipboard.writeText(this.currentRoom).then(() => {
-                    const originalText = btn.textContent;
-                    btn.textContent = '✓ Skopiowano!';
-                    btn.style.background = 'var(--msg-self-bg)';
+                navigator.clipboard.writeText(`${window.location.origin}/?room=${this.currentRoom}`).then(() => {
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '✓ Pełny link!';
+                    btn.style.background = '#4CAF50';
                     btn.disabled = true;
                     
                     setTimeout(() => {
-                        btn.textContent = originalText;
+                        btn.innerHTML = originalText;
                         btn.style.background = '';
                         btn.disabled = false;
                     }, 2000);
-                }).catch(() => {
-                    alert('Hash skopiowany: ' + this.currentRoom);
                 });
             }
 
@@ -147,7 +166,8 @@
                     this.socket.emit('chat message', {
                         nickname: this.nickname,
                         message,
-                        room: this.currentRoom
+                        room: this.currentRoom,
+                        password: this.roomPassword
                     });
                     input.value = '';
                 }
@@ -172,16 +192,6 @@
                 li.textContent = text;
                 document.getElementById('messages').appendChild(li);
                 li.scrollIntoView({ behavior: 'smooth' });
-            }
-
-            setTheme(theme) {
-                document.body.className = theme + '-theme';
-                localStorage.setItem('veilo-theme', theme);
-            }
-
-            loadTheme() {
-                const saved = localStorage.getItem('veilo-theme') || 'dark';
-                this.setTheme(saved);
             }
         }
 
