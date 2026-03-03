@@ -1,7 +1,8 @@
 # 🛡️ Veilo - Secure E2EE Chat & API
 
 Veilo to lekka aplikacja czatu stawiająca na prywatność, wykorzystująca szyfrowanie **End-to-End (E2EE)** oraz unikalną izolację pokojów opartą na hashowaniu. Dzięki wbudowanemu **REST API**, administratorzy mogą monitorować serwer i wysyłać komunikaty systemowe.
-Status api pod: veilo.onrender.com/api/status
+Status api pod: veilo.onrender.com/api/stats lub /api/health
+
 
 
 
