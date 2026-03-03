@@ -32,7 +32,6 @@
   --secondary-text: #666;
 }
 
-/* === Ogólne resetowanie i styl === */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -44,14 +43,77 @@ body {
   background-color: var(--bg-color);
   color: var(--text-color);
   font-size: 16px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
+  min-height: 100vh;
   transition: background-color 0.3s, color 0.3s;
 }
 
-/* === Ekran logowania === */
+/* Header pokoju z kopiowaniem */
+.header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--header-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+#room-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#room-name {
+  font-size: 16px;
+  color: var(--header-text);
+}
+
+#copy-room-btn {
+  background: var(--input-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+#copy-room-btn:hover:not(:disabled) {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+  transform: translateY(-1px);
+}
+
+#copy-room-btn.copied {
+  background: var(--msg-self-bg);
+  border-color: var(--msg-self-bg);
+  color: white;
+  animation: pulse 0.6s ease-in-out;
+}
+
+#copy-room-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* Ekran logowania */
 #nickname-screen {
   background: var(--panel-bg);
   padding: 40px 50px;
@@ -60,16 +122,14 @@ body {
   text-align: center;
   display: flex;
   flex-direction: column;
-  /* Układamy elementy pionowo */
   gap: 15px;
-  /* Odstęp między inputami */
   width: 100%;
   max-width: 400px;
-}
-
-#nickname-screen img {
-  margin-bottom: 5px;
-  align-self: center;
+  margin: 2rem auto;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 #nickname-screen h2 {
@@ -78,36 +138,7 @@ body {
   font-size: 24px;
 }
 
-/* === Linki na ekranie logowania === */
-#nickname-screen a {
-  color: var(--primary-color);
-  /* Twój główny zielony */
-  text-decoration: none;
-  font-size: 0.85rem;
-  margin-top: 15px;
-  display: inline-block;
-  transition: color 0.2s ease, opacity 0.2s ease;
-  opacity: 0.8;
-}
-
-#nickname-screen a:hover {
-  color: var(--primary-hover);
-  /* Jaśniejszy zielony przy najechaniu */
-  opacity: 1;
-  text-decoration: underline;
-}
-
-/* Jeśli link jest w paragrafie, np. <p>Kliknij <a href="...">tutaj</a></p> */
-#nickname-screen p {
-  font-size: 0.9rem;
-  color: var(--secondary-text);
-  margin-top: 10px;
-}
-
-/* WAŻNE: Dodałem #secret-key, aby pole hasła też było stylowane */
-#nickname-input,
-#room-select,
-#secret-key {
+#nickname-input, #room-input, #secret-key {
   padding: 12px;
   width: 100%;
   border: 1px solid var(--border-color);
@@ -119,12 +150,11 @@ body {
   transition: border 0.3s;
 }
 
-#nickname-input:focus,
-#secret-key:focus {
+#nickname-input:focus, #room-input:focus, #secret-key:focus {
   border-color: var(--primary-color);
 }
 
-#nickname-screen button {
+#join-btn {
   padding: 12px 24px;
   background-color: var(--primary-color);
   border: none;
@@ -134,14 +164,13 @@ body {
   cursor: pointer;
   transition: background 0.2s ease-in-out;
   font-size: 16px;
-  margin-top: 10px;
 }
 
-#nickname-screen button:hover {
+#join-btn:hover {
   background-color: var(--primary-hover);
 }
 
-/* === Ekran czatu === */
+/* Ekran czatu */
 #chat-screen {
   display: flex;
   width: 90vw;
@@ -151,9 +180,11 @@ body {
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  margin: 2rem auto;
+  position: relative;
 }
 
-/* === Sidebar użytkowników === */
+/* Sidebar */
 #sidebar {
   width: 250px;
   background-color: var(--sidebar-bg);
@@ -189,28 +220,7 @@ body {
   background-color: var(--input-bg);
 }
 
-/* Przycisk powiadomień w sidebarze */
-#notify-btn,
-.settings-nav-btn {
-  background-color: var(--input-bg);
-  color: var(--text-color);
-  border: none;
-  padding: 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 13px;
-  margin-top: 10px;
-  transition: 0.2s;
-  text-align: center;
-  text-decoration: none;
-}
-
-#notify-btn:hover,
-.settings-nav-btn:hover {
-  background-color: var(--border-color);
-}
-
-/* === Główna część czatu === */
+/* Chat main */
 #chat-main {
   flex: 1;
   display: flex;
@@ -218,18 +228,7 @@ body {
   background-color: var(--chat-bg);
 }
 
-.header {
-  padding: 20px;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--header-text);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-/* === Wiadomości === */
+/* Wiadomości */
 #messages {
   flex: 1;
   list-style: none;
@@ -250,11 +249,9 @@ body {
   background-color: var(--msg-bg);
   color: var(--text-color);
   align-self: flex-start;
-  /* Wiadomości innych po lewej */
   animation: fadeIn 0.3s ease-in;
 }
 
-/* Styl dla nicku nad wiadomością */
 #messages li strong {
   display: block;
   font-size: 12px;
@@ -262,21 +259,16 @@ body {
   margin-bottom: 4px;
 }
 
-/* Wiadomości wysłane przez Ciebie */
 #messages li.self {
   align-self: flex-end;
-  /* Twoje po prawej */
   background-color: var(--msg-self-bg);
   color: white;
-  text-align: left;
-  /* Tekst wewnątrz dymka nadal do lewej */
 }
 
 #messages li.self strong {
   color: #e0e0e0;
 }
 
-/* Wiadomości systemowe */
 #messages li.system {
   align-self: center;
   background: none;
@@ -286,7 +278,6 @@ body {
   padding: 5px;
 }
 
-/* === Wzmianki (@nick) === */
 .mention {
   background-color: rgba(255, 152, 0, 0.2);
   color: #ffb74d;
@@ -295,7 +286,7 @@ body {
   font-weight: normal;
 }
 
-/* === Wskaźnik pisania === */
+/* Typing indicator */
 #typing-indicator {
   height: 20px;
   padding: 0 20px;
@@ -305,7 +296,7 @@ body {
   margin-bottom: 5px;
 }
 
-/* === Formularz wiadomości === */
+/* Formularz wiadomości */
 #message-form {
   display: flex;
   padding: 20px;
@@ -313,7 +304,7 @@ body {
   border-top: 1px solid var(--border-color);
 }
 
-#message-form input {
+#message-input {
   flex: 1;
   padding: 12px 15px;
   border: 1px solid var(--border-color);
@@ -324,7 +315,7 @@ body {
   outline: none;
 }
 
-#message-form input:focus {
+#message-input:focus {
   border-color: var(--primary-color);
 }
 
@@ -345,115 +336,58 @@ body {
   background-color: var(--primary-hover);
 }
 
-/* === Animacje === */
+/* Animacje */
 @keyframes fadeIn {
   from {
     opacity: 0;
     transform: translateY(10px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-/* === Ekran ustawień === */
-#settings-screen {
-  display: none;
-  width: 90vw;
-  height: 90vh;
-  max-width: 1200px;
-  background-color: var(--chat-bg);
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-  flex-direction: column;
-}
-
-#settings-main {
-  flex: 1;
-  padding: 40px;
-  overflow-y: auto;
-}
-
-.settings-group {
-  margin-bottom: 30px;
-}
-
-.settings-group h4 {
-  margin-bottom: 15px;
-  color: var(--header-text);
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 10px;
-}
-
-.theme-options {
-  display: flex;
-  gap: 20px;
-}
-
-.theme-btn {
-  padding: 15px 25px;
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--panel-bg);
-  color: var(--text-color);
-  cursor: pointer;
-  transition: 0.3s;
-  font-weight: 600;
-}
-
-.theme-btn.active {
-  border-color: var(--primary-color);
-  background: var(--primary-color);
-  color: white;
-}
-
-.theme-btn:hover:not(.active) {
-  border-color: var(--primary-color);
-}
-
-/* === Responsywność === */
+/* Responsywność */
 @media screen and (max-width: 768px) {
-
-  #chat-screen,
-  #settings-screen {
+  #chat-screen {
     flex-direction: column;
     width: 100%;
-    height: 100%;
+    height: 100vh;
+    margin: 0;
     border-radius: 0;
   }
 
   #sidebar {
     width: 100%;
     height: 60px;
-    /* Zwijamy sidebar na mobilkach */
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
     padding: 10px 20px;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
-    overflow: hidden;
   }
 
-  #sidebar h3,
-  #user-list,
-  #notify-btn,
-  .settings-nav-btn {
+  #sidebar h3, #user-list, #notify-btn, .settings-nav-btn {
     display: none;
-    /* Ukrywamy listę userów na telefonie dla prostoty */
   }
 
-  #sidebar::after {
-    content: "Veilo Mobile";
-    color: white;
-    font-weight: bold;
+  #room-info {
+    font-size: 14px;
   }
 
-  #chat-main,
-  #settings-main {
-    height: calc(100% - 60px);
+  #copy-room-btn {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  #room-name {
+    font-size: 14px;
+  }
+
+  #nickname-screen {
+    margin: 1rem;
+    padding: 30px 20px;
   }
 }
