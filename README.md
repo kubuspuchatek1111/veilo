@@ -16,8 +16,10 @@ Status api pod: veilo.onrender.com/api/stats lub /api/health
 - **Motyw**: Możliwość zmiany motywu (jasny/ciemny) w ustawieniach (domyślnie ciemny)
 - **API**: Spieprzyłem XD
 
-## 🖕 Nowości w wersji 2.3 (Najnowsza wersja)
+## 🖕 Nowości w wersji 2.3
 - **API**: Naprawione 😃
+## 🔆Nowości w wersji 3.0 (Najnowsza wersja)
+- **Design** Dodałem nowoczesny oraz ładny design
 
 ## 🔐 Bezpieczeństwo
 * **Szyfrowanie AES**: Wszystkie wiadomości są szyfrowane po stronie klienta za pomocą biblioteki `CryptoJS`. Serwer nigdy nie widzi treści wiadomości w formie jawnej.
