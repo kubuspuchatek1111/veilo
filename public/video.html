@@ -1,180 +1,77 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Veilo Video Chat</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="/socket.io/socket.io.js"></script>
+    <title>Veilo Video</title>
+    <style>
+        body { margin: 0; background: #000; font-family: Arial; color: white; }
+        .videos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: 90vh; padding: 10px; }
+        video { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+        .controls { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); 
+                   background: rgba(0,0,0,0.8); padding: 20px; border-radius: 30px; display: flex; gap: 15px; }
+        button { padding: 15px 25px; border: none; border-radius: 25px; color: white; 
+                background: #10b981; cursor: pointer; font-size: 16px; }
+        button.active { background: #ef4444; }
+    </style>
 </head>
 <body>
-    <div class="video-container">
-        <!-- Local Video -->
-        <div class="video-grid">
-            <video id="localVideo" autoplay muted playsinline></video>
-            
-            <!-- Remote Videos -->
-            <div id="remoteVideos"></div>
-        </div>
-
-        <!-- Controls -->
-        <div class="video-controls">
-            <button id="toggleVideo" class="control-btn video-btn active">
-                <span>📹</span> Video
-            </button>
-            <button id="toggleAudio" class="control-btn audio-btn active">
-                <span>🔊</span> Audio
-            </button>
-            <button id="screenShare" class="control-btn">
-                <span>🖥️</span> Ekran
-            </button>
-            <div class="room-info">
-                <span>Pokój: <strong id="roomName">-</strong></span>
-            </div>
-        </div>
-
-        <!-- Chat w rogu -->
-        <div class="video-chat">
-            <div id="videoMessages"></div>
-            <input id="videoMessageInput" placeholder="Wpisz wiadomość...">
-        </div>
+    <div class="videos">
+        <video id="localVideo" autoplay muted></video>
+        <video id="remoteVideo" autoplay></video>
+    </div>
+    <div class="controls">
+        <button id="toggleVideo" class="active">📹 Video</button>
+        <button id="toggleAudio" class="active">🔊 Audio</button>
+        <button id="endCall">❌ Zakończ</button>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
-        class VideoChat {
-            constructor() {
-                this.socket = io();
-                this.localStream = null;
-                this.remoteStreams = new Map();
-                this.pc = null;
-                this.room = '';
-                this.nickname = 'VideoUser';
-                this.init();
-            }
+        const socket = io();
+        let localStream, pc;
+        let room = new URLSearchParams(window.location.search).get('room') || 'test';
 
-            async init() {
-                // Pobierz media
-                try {
-                    this.localStream = await navigator.mediaDevices.getUserMedia({
-                        video: true,
-                        audio: true
+        // Inicjalizacja
+        navigator.mediaDevices.getUserMedia({video: true, audio: true})
+            .then(stream => {
+                localStream = stream;
+                document.getElementById('localVideo').srcObject = stream;
+                socket.emit('join', {nickname: 'VideoUser', room, password: 'video'});
+                createPeerConnection();
+            });
+
+        function createPeerConnection() {
+            pc = new RTCPeerConnection({
+                iceServers: [{urls: 'stun:stun.l.google.com:19302'}]
+            });
+
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            
+            pc.ontrack = e => {
+                document.getElementById('remoteVideo').srcObject = e.streams[0];
+            };
+
+            pc.onicecandidate = e => {
+                if (e.candidate) {
+                    socket.emit('webrtc-ice-candidate', {
+                        target: 'all',
+                        candidate: e.candidate
                     });
-                    document.getElementById('localVideo').srcObject = this.localStream;
-                } catch(e) {
-                    console.error('Błąd kamery:', e);
                 }
-
-                this.bindEvents();
-                this.getRoomFromURL();
-            }
-
-            bindEvents() {
-                document.getElementById('toggleVideo').onclick = () => this.toggleVideo();
-                document.getElementById('toggleAudio').onclick = () => this.toggleAudio();
-                document.getElementById('screenShare').onclick = () => this.toggleScreenShare();
-
-                // Socket events
-                this.socket.on('webrtc-offer', data => this.handleOffer(data));
-                this.socket.on('webrtc-answer', data => this.handleAnswer(data));
-                this.socket.on('webrtc-ice-candidate', data => this.handleIceCandidate(data));
-            }
-
-            getRoomFromURL() {
-                const urlParams = new URLSearchParams(window.location.search);
-                this.room = urlParams.get('room') || prompt('Nazwa pokoju:') || 'default';
-                document.getElementById('roomName').textContent = this.room;
-                this.socket.emit('join', { nickname: this.nickname, room: this.room, password: 'video' });
-            }
-
-            async createPeerConnection(targetId) {
-                this.pc = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-                });
-
-                // Local stream
-                this.localStream.getTracks().forEach(track => this.pc.addTrack(track, this.localStream));
-
-                // Events
-                this.pc.ontrack = e => {
-                    const remoteVideo = document.createElement('video');
-                    remoteVideo.id = targetId;
-                    remoteVideo.autoplay = true;
-                    remoteVideo.playsinline = true;
-                    remoteVideo.srcObject = e.streams[0];
-                    document.getElementById('remoteVideos').appendChild(remoteVideo);
-                };
-
-                this.pc.onicecandidate = e => {
-                    if (e.candidate) {
-                        this.socket.emit('webrtc-ice-candidate', {
-                            target: targetId,
-                            candidate: e.candidate
-                        });
-                    }
-                };
-
-                return this.pc;
-            }
-
-            async handleOffer(data) {
-                if (!this.pc) {
-                    await this.createPeerConnection(data.from);
-                }
-                await this.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await this.pc.createAnswer();
-                await this.pc.setLocalDescription(answer);
-                this.socket.emit('webrtc-answer', {
-                    target: data.from,
-                    answer: this.pc.localDescription
-                });
-            }
-
-            async handleAnswer(data) {
-                if (this.pc) {
-                    await this.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                }
-            }
-
-            handleIceCandidate(data) {
-                if (this.pc) {
-                    this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-                }
-            }
-
-            toggleVideo() {
-                const videoTrack = this.localStream.getVideoTracks()[0];
-                videoTrack.enabled = !videoTrack.enabled;
-                document.getElementById('toggleVideo').classList.toggle('active');
-                this.socket.emit('toggle-video', { 
-                    room: this.room, 
-                    videoOn: videoTrack.enabled 
-                });
-            }
-
-            toggleAudio() {
-                const audioTrack = this.localStream.getAudioTracks()[0];
-                audioTrack.enabled = !audioTrack.enabled;
-                document.getElementById('toggleAudio').classList.toggle('active');
-                this.socket.emit('toggle-audio', { 
-                    room: this.room, 
-                    audioOn: audioTrack.enabled 
-                });
-            }
-
-            async toggleScreenShare() {
-                try {
-                    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-                    this.localStream.getVideoTracks().forEach(track => track.stop());
-                    this.localStream.addTrack(stream.getVideoTracks()[0]);
-                    document.getElementById('localVideo').srcObject = this.localStream;
-                } catch(e) {
-                    console.error('Screen share odrzucone');
-                }
-            }
+            };
         }
 
-        new VideoChat();
+        // Controls
+        document.getElementById('toggleVideo').onclick = () => {
+            const videoTrack = localStream.getVideoTracks()[0];
+            videoTrack.enabled = !videoTrack.enabled;
+            this.classList.toggle('active');
+        };
+
+        document.getElementById('toggleAudio').onclick = () => {
+            const audioTrack = localStream.getAudioTracks()[0];
+            audioTrack.enabled = !audioTrack.enabled;
+            this.classList.toggle('active');
+        };
     </script>
 </body>
 </html>
-
