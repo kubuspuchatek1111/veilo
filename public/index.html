@@ -1,157 +1,92 @@
 <!DOCTYPE html>
 <html lang="pl">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Veilo - Secure Messaging</title>
-  <link rel="icon" href="logo.png" type="image/png">
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-  <style>
-    /* Styl dla przycisku kopiowania */
-    .copy-btn {
-      background: none;
-      border: none;
-      color: #4caf50;
-      cursor: pointer;
-      font-size: 0.8rem;
-      margin-left: 5px;
-      padding: 2px 5px;
-      border-radius: 4px;
-      transition: background 0.2s;
-    }
-
-    .copy-btn:hover {
-      background: rgba(76, 175, 80, 0.1);
-    }
-
-    .copy-btn:active {
-      transform: scale(0.9);
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Veilo - Secure Messaging</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 </head>
-
 <body>
 
   <div id="nickname-screen">
-    <img src="logo.png" width="60" alt="Logo">
     <h2>Veilo Chat</h2>
-    <p id="stats-bar" style="font-size: 0.8rem; color: #777;">Łączenie z serwerem...</p>
-
     <input type="text" id="nickname-input" placeholder="Twój nick..." maxlength="20" />
-    <input type="password" id="secret-key" placeholder="Hasło pokoju..." style="margin-top: 10px;" />
-
+    <input type="password" id="secret-key" placeholder="Hasło pokoju (Klucz E2EE)..." />
     <button onclick="enterChat()">Wchodzę</button>
-    <button onclick="window.location.href='generator.html';"
-      style="background:none; border:1px solid #4caf50; color:#4caf50; margin-top:10px;">
-      Generator haseł
-    </button>
   </div>
 
   <div id="chat-screen" style="display: none;">
     <div id="sidebar">
-      <h3>Aktywni</h3>
-      <ul id="user-list"></ul>
-      <button id="notify-btn">Powiadomienia</button>
-      <button class="settings-nav-btn" onclick="showSettings()">⚙️ Ustawienia</button>
+        <h3>Aktywni</h3>
+        <ul id="user-list"></ul>
     </div>
-
     <div id="chat-main">
-      <div class="header">
-        Veilo E2EE
-        <span id="room-tag" style="opacity: 0.5; font-size: 0.7rem; margin-left: 10px;"></span>
-        <button id="copy-btn-ui" class="copy-btn" onclick="copyRoomHash()" title="Kopiuj pełny hash pokoju">📋
-          Kopiuj</button>
-      </div>
-      <ul id="messages"></ul>
-      <div id="typing-indicator"></div>
-      <form id="message-form">
-        <input type="text" id="message-input" placeholder="Napisz coś..." autocomplete="off" />
-        <button type="submit">Wyślij</button>
-      </form>
+        <div class="header">Veilo E2EE <span id="room-info"></span></div>
+        <ul id="messages"></ul>
+        <div id="typing-indicator"></div>
+        <form id="message-form">
+            <input type="text" id="message-input" placeholder="Napisz bezpieczną wiadomość..." />
+            <button type="submit">Wyślij</button>
+        </form>
     </div>
   </div>
 
-  <div id="settings-screen">
-    <div class="header">
-      Ustawienia
-      <button class="copy-btn" onclick="showChat()">⬅️ Powrót</button>
-    </div>
-    <div id="settings-main">
-      <div class="settings-group">
-        <h4>Motyw</h4>
-        <div class="theme-options">
-          <button id="theme-dark" class="theme-btn" onclick="setTheme('dark')">Ciemny</button>
-          <button id="theme-light" class="theme-btn" onclick="setTheme('light')">Jasny</button>
-        </div>
-      </div>
-
-      <div class="settings-group">
-        <h4>O aplikacji</h4>
-        <p>Veilo v1.1 - Secure E2EE Messaging</p>
-      </div>
-    </div>
-  </div>
-
-<script src="/socket.io/socket.io.js"></script>
   <script>
-const express = require('express');
-const http = require('http');
-const { Server } = require("socket.io");
-const path = require('path');
-const cors = require('cors');
+    const socket = io();
+    let currentNickname = "";
+    let roomPassword = "";
+    const roomID = "global_room"; // Możesz to zmienić na dynamiczne
 
-const app = express();
-app.use(cors());
+    function enterChat() {
+        currentNickname = document.getElementById('nickname-input').value;
+        roomPassword = document.getElementById('secret-key').value;
 
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
+        if(!currentNickname || !roomPassword) return alert("Podaj nick i hasło!");
 
-// Serwowanie plików z folderu 'public'
-app.use(express.static(path.join(__dirname, 'public')));
+        document.getElementById('nickname-screen').style.display = 'none';
+        document.getElementById('chat-screen').style.display = 'flex';
 
-const users = {}; 
+        socket.emit('join', { nickname: currentNickname, room: roomID });
+    }
 
-io.on('connection', (socket) => {
-    socket.on('join', ({ nickname, room }) => {
-        socket.join(room);
-        users[socket.id] = { nickname, room };
-        socket.to(room).emit('user joined', nickname);
-        
-        const list = Object.values(users)
-            .filter(u => u.room === room)
-            .map(u => u.nickname);
-        io.to(room).emit('user list', list);
-    });
+    // Wysyłanie wiadomości (Szyfrowanie)
+    document.getElementById('message-form').onsubmit = (e) => {
+        e.preventDefault();
+        const input = document.getElementById('message-input');
+        if(!input.value) return;
 
+        // E2EE: Szyfrujemy treść kluczem pokoju przed wysłaniem
+        const encrypted = CryptoJS.AES.encrypt(input.value, roomPassword).toString();
+
+        socket.emit('chat message', {
+            room: roomID,
+            nickname: currentNickname,
+            text: encrypted
+        });
+        input.value = '';
+    };
+
+    // Odbieranie wiadomości (Deszyfrowanie)
     socket.on('chat message', (msg) => {
-        io.to(msg.room).emit('chat message', msg);
-    });
-
-    socket.on('disconnect', () => {
-        const user = users[socket.id];
-        if (user) {
-            const r = user.room;
-            socket.to(r).emit('user left', user.nickname);
-            delete users[socket.id];
-            const list = Object.values(users)
-                .filter(u => u.room === r)
-                .map(u => u.nickname);
-            io.to(r).emit('user list', list);
+        const li = document.createElement('li');
+        try {
+            // Próba odszyfrowania
+            const bytes = CryptoJS.AES.decrypt(msg.text, roomPassword);
+            const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+            
+            li.textContent = `${msg.nickname}: ${decryptedText || "[Błąd deszyfrowania - zły klucz]"}`;
+        } catch(e) {
+            li.textContent = `${msg.nickname}: [Wiadomość zaszyfrowana]`;
         }
+        document.getElementById('messages').appendChild(li);
     });
-});
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
+    socket.on('user list', (list) => {
+        const ul = document.getElementById('user-list');
+        ul.innerHTML = list.map(u => `<li>${u}</li>`).join('');
+    });
   </script>
 </body>
-
 </html>
