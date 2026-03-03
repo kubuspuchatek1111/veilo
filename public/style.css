@@ -24,7 +24,7 @@
   --accent-hover: #047857;
 }
 
-/* === RESET === */
+/* === RESET + BASE === */
 * {
   margin: 0;
   padding: 0;
@@ -42,6 +42,7 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
+  position: relative;
 }
 
 /* === ANIMACJE TŁA === */
@@ -386,6 +387,7 @@ body::before {
   background: rgba(255, 255, 255, 0.02);
 }
 
+/* === HEADER Z VIDEO PRZYCISKAMI === */
 .header {
   padding: 1.5rem 2rem;
   background: rgba(15, 23, 42, 0.8);
@@ -393,6 +395,11 @@ body::before {
   border-bottom: 1px solid var(--glass-border);
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+#room-info {
+  display: flex;
   align-items: center;
 }
 
@@ -405,6 +412,13 @@ body::before {
   -webkit-text-fill-color: transparent;
 }
 
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* PRZYCISK KOPIUJ */
 #copy-room-btn {
   background: rgba(16, 185, 129, 0.15);
   backdrop-filter: blur(10px);
@@ -430,6 +444,7 @@ body::before {
   background: linear-gradient(45deg, var(--accent), var(--accent-hover));
   opacity: 0;
   transition: opacity 0.3s ease;
+  border-radius: 12px;
 }
 
 #copy-room-btn:hover:not(:disabled)::before {
@@ -449,11 +464,52 @@ body::before {
   animation: pulse 0.6s ease-in-out;
 }
 
+/* PRZYCISKI VIDEO/AUDIO */
+.call-btn {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.1));
+  backdrop-filter: blur(10px);
+  color: var(--text-primary);
+  border: 1px solid rgba(16,185,129,0.3);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  min-width: 70px;
+  justify-content: center;
+}
+
+.call-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, var(--accent), var(--accent-hover));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 12px;
+}
+
+.call-btn:hover::before {
+  opacity: 1;
+}
+
+.call-btn:hover {
+  transform: translateY(-2px);
+  color: white !important;
+  box-shadow: 0 10px 25px rgba(16,185,129,0.4);
+}
+
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
 }
 
+/* === OBSZAR WIADOMOŚCI === */
 #messages {
   flex: 1;
   list-style: none;
@@ -525,6 +581,7 @@ body::before {
   font-size: 0.7rem;
   opacity: 0.6;
   margin-top: 0.25rem;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 #messages li.system {
@@ -545,6 +602,7 @@ body::before {
   font-weight: 500;
 }
 
+/* === FORMULARZ === */
 #message-form {
   padding: 1.5rem 2rem;
   background: rgba(15, 23, 42, 0.8);
@@ -629,7 +687,19 @@ body::before {
   #messages li {
     max-width: 85%;
   }
+  
+  .header-actions {
+    gap: 5px;
+  }
+  
+  .call-btn {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    min-width: 55px;
+  }
 }
+
+/* === VIDEO CHAT (dla video.html) === */
 .video-container {
   height: 100vh;
   background: var(--bg-gradient);
@@ -665,21 +735,6 @@ body::before {
   margin: 0 20px 20px;
 }
 
-.control-btn {
-  padding: 15px 25px;
-  border: none;
-  border-radius: 50px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.control-btn.active { background: var(--success); color: white; }
-.control-btn:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-
 .video-chat {
   position: fixed;
   bottom: 30px;
@@ -692,4 +747,3 @@ body::before {
   padding: 20px;
   border: 1px solid var(--glass-border);
 }
-
