@@ -33,7 +33,7 @@ Status api pod: veilo.onrender.com/api/stats lub /api/health
 ## 🛠️ Instalacja i uruchomienie
 
 1. Sklonuj repozytorium:
-   git clone [https://github.com/kubuspuchatek1111/veilo.git](https://github.com/kubuspuchatek1111/veilo.git)
+   ```git clone [https://github.com/kubuspuchatek1111/veilo.git](https://github.com/kubuspuchatek1111/veilo.git)```
 
 Zainstaluj zależności:
 npm install
@@ -41,7 +41,7 @@ npm install
 Uruchom serwer:
 node server.js
 
-Aplikacja dostępna pod adresem: http://localhost:3000
+Aplikacja dostępna pod adresem: ```http://localhost:3000```
 
 📡 Dokumentacja API
 1. Status Serwera
