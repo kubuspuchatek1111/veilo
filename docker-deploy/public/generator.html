@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Klucza Dnia</title>
+    <style>
+        /* Główne tło strony */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #121212; 
+            color: #e0e0e0; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 30px;
+            font-weight: 300;
+        }
+
+        /* Styl paska na wzór Twojego screena */
+        .input-wrapper {
+            display: flex;
+            background-color: #1e1e1e;
+            border: 1px solid #333333;
+            border-radius: 25px;
+            padding: 5px 10px 5px 20px;
+            align-items: center;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #555555;
+        }
+
+        input { 
+            flex-grow: 1;
+            background: transparent;
+            border: none;
+            color: #e0e0e0;
+            font-size: 16px;
+            padding: 10px 0;
+            outline: none;
+        }
+
+        input::placeholder {
+            color: #777;
+        }
+
+        /* Przycisk główny */
+        .btn-main { 
+            background-color: #4caf50; 
+            color: white; 
+            border: none; 
+            border-radius: 20px;
+            padding: 10px 25px;
+            font-weight: bold;
+            cursor: pointer; 
+            transition: background 0.3s ease;
+            margin-left: 10px;
+        }
+
+        .btn-main:hover { 
+            background-color: #45a049; 
+        }
+
+        /* Wynik */
+        #result { 
+            margin-top: 40px;
+            padding: 20px;
+            background-color: #1e1e1e;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            display: none;
+            animation: fadeIn 0.5s ease;
+            position: relative;
+        }
+
+        .key-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 10px;
+            background: #121212;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        #keyHex {
+            color: #4caf50;
+            word-break: break-all;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1em;
+            text-align: left;
+            margin-right: 10px;
+        }
+
+        .btn-copy {
+            background: #333;
+            color: #e0e0e0;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        .btn-copy:hover {
+            background: #444;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Generator Klucza</h2>
+        
+        <div class="input-wrapper">
+            <input type="password" id="password" placeholder="Napisz hasło..." onkeydown="if(event.key==='Enter') generateKey()">
+            <button class="btn-main" onclick="generateKey()">Generuj</button>
+        </div>
+
+        <div id="result">
+            <span style="color: #888; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px;">Klucz AES-256 na dziś</span>
+            <div class="key-container">
+                <span id="keyHex"></span>
+                <button class="btn-copy" id="copyBtn" onclick="copyToClipboard()">Kopiuj</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function generateKey() {
+            const password = document.getElementById('password').value;
+            if (!password) return;
+
+            const dateSalt = new Date().toISOString().split('T')[0];
+            const encoder = new TextEncoder();
+            const saltBuffer = encoder.encode(dateSalt);
+            const passwordBuffer = encoder.encode(password);
+
+            const baseKey = await crypto.subtle.importKey(
+                'raw', passwordBuffer, 'PBKDF2', false, ['deriveBits']
+            );
+
+            const derivedBits = await crypto.subtle.deriveBits(
+                { name: 'PBKDF2', salt: saltBuffer, iterations: 100000, hash: 'SHA-256' },
+                baseKey, 256
+            );
+
+            const hashArray = Array.from(new Uint8Array(derivedBits));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('keyHex').innerText = hashHex;
+            document.getElementById('copyBtn').innerText = "Kopiuj"; // Reset tekstu przycisku
+        }
+
+        function copyToClipboard() {
+            const keyText = document.getElementById('keyHex').innerText;
+            const btn = document.getElementById('copyBtn');
+            
+            navigator.clipboard.writeText(keyText).then(() => {
+                btn.innerText = "Skopiowano!";
+                setTimeout(() => {
+                    btn.innerText = "Kopiuj";
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
