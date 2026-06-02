@@ -32,7 +32,7 @@ Status api pod: veilo.onrender.com/api/stats lub /api/health
 
 ## 🛠️ Instalacja i uruchomienie
 
-Możesz uruchomić aplikację lokalnie na swoim komputerze lub z użyciem Dockera.
+Możesz uruchomić aplikację lokalnie na swoim komputerze
 
 ### 💻 1. Uruchomienie lokalne
 
@@ -53,45 +53,6 @@ Możesz uruchomić aplikację lokalnie na swoim komputerze lub z użyciem Docker
    ```
 
 Aplikacja będzie dostępna pod adresem: `http://localhost:3000`
-
----
-
-### 🐳 2. Uruchomienie z użyciem Dockera
-
-Wszystkie pliki potrzebne do uruchomienia aplikacji w kontenerze znajdują się w katalogu:
-👉 **[docker-deploy](file:///c:/Users/Piotr/Documents/GitHub/veilo/docker-deploy)**
-
-Wejdź w terminalu do tego folderu (`cd docker-deploy`) i wybierz jedną z poniższych metod:
-
-#### Metoda A: Docker Compose (Najprostsza)
-Ta metoda automatycznie zbuduje obraz i uruchomi kontener w tle za pomocą jednego polecenia:
-```bash
-docker compose up -d
-```
-Aby zatrzymać aplikację:
-```bash
-docker compose down
-```
-
-#### Metoda B: Czysty Docker CLI (Bez Compose)
-Użyj tej metody, jeśli nie masz zainstalowanego Docker Compose na maszynie docelowej.
-
-1. **Zbuduj obraz:**
-   ```bash
-   docker build -t veilo-chat .
-   ```
-2. **Uruchom kontener w tle:**
-   ```bash
-   docker run -d -p 3000:3000 --name veilo-chat-app veilo-chat
-   ```
-
-*Jeśli chcesz udostępnić aplikację na innym porcie zewnętrznym (np. `8080`), zmień parametr mapowania portów na `-p 8080:3000`.*
-
-#### 🔧 Przydatne polecenia zarządzania kontenerem:
-- **Status kontenerów:** `docker ps`
-- **Logi na żywo:** `docker logs -f veilo-chat-app`
-- **Zatrzymanie:** `docker stop veilo-chat-app`
-- **Usunięcie kontenera:** `docker rm -f veilo-chat-app`
 
 ---
 
