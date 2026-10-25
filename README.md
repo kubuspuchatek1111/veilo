@@ -1,7 +1,7 @@
-# 🛡️ Veilo - Secure E2EE Chat & API
+# 🛡️ Veilo - Czat online i API
 
-Veilo to lekka aplikacja czatu stawiająca na prywatność, wykorzystująca szyfrowanie **End-to-End (E2EE)** oraz unikalną izolację pokojów opartą na hashowaniu. Dzięki wbudowanemu **REST API**, administratorzy mogą monitorować serwer i wysyłać komunikaty systemowe.
-Status api pod: veilo.onrender.com/api/stats lub /api/health
+Veilo to lekka aplikacja czatu z pokojami, rozmowami audio/wideo i REST API do moderacji.
+Status API: [veilo.onrender.com/api/stats](https://veilo.onrender.com/api/stats)
 
 
 
@@ -26,9 +26,10 @@ Status api pod: veilo.onrender.com/api/stats lub /api/health
 - **Audio&Video** Dodałem rozmowy na żywo (Beta)
 
 ## 🔐 Bezpieczeństwo
-* **Szyfrowanie AES**: Wszystkie wiadomości są szyfrowane po stronie klienta za pomocą biblioteki `CryptoJS`. Serwer nigdy nie widzi treści wiadomości w formie jawnej.
-* **Izolacja SHA-256**: Identyfikator pokoju jest hashem SHA-256 hasła wejściowego. Nawet jeśli ktoś wejdzie na ten sam serwer, nie zobaczy Twojego pokoju bez znajomości identycznego hasła.
-* **Brak logowania danych**: Wiadomości nie są zapisywane w bazie danych – istnieją tylko "tu i teraz" w pamięci RAM.
+* **Wiadomości czatu**: aktualna implementacja przesyła treść wiadomości przez Socket.IO bez szyfrowania end-to-end. Nie należy traktować jej jako bezpiecznego komunikatora.
+* **Pokoje**: hasła pokoi są przechowywane w pamięci serwera. Identyfikator pokoju jest tworzony prostym, krótkim hashem i nie zastępuje mocnego hasła.
+* **Moderacja**: chronione endpointy wymagają klucza `ADMIN_API_KEY`. Ustaw go jako zmienną środowiskową serwera i nie umieszczaj w kodzie przeglądarki.
+* **Pamięć**: pokoje i aktywni użytkownicy są przechowywani w RAM. Wiadomości nie są zapisywane przez serwer.
 
 ## 🛠️ Instalacja i uruchomienie
 
@@ -47,44 +48,60 @@ Możesz uruchomić aplikację lokalnie na swoim komputerze
    npm install
    ```
 
-3. **Uruchom serwer:**
+3. **Ustaw klucz API administratora i uruchom serwer:**
    ```bash
-   node server.js
+   ADMIN_API_KEY="wstaw-tu-dlugi-losowy-klucz" node server.js
    ```
+
+   W hostingu Render ustaw `ADMIN_API_KEY` w zmiennych środowiskowych serwisu.
 
 Aplikacja będzie dostępna pod adresem: `http://localhost:3000`
 
 ---
 
-📡 Dokumentacja API
-1. Status Serwera
-Zwraca informacje o obciążeniu serwera.
+## 📡 API moderacji
 
-Endpoint: GET /api/status
+API administratora jest dostępne tylko wtedy, gdy na serwerze ustawiono zmienną środowiskową `ADMIN_API_KEY`. Każde żądanie do `/api/admin/*` musi zawierać nagłówek:
 
-Odpowiedź: {"status": "online", "usersOnline": 5, "activeRooms": 2, "uptime": 3600}
+```http
+Authorization: Bearer TWÓJ_KLUCZ_ADMINA
+```
 
-2. Broadcast (Komunikat Admina)
-Wysyła jawną wiadomość systemową do wybranego pokoju.
+Nie wpisuj klucza do plików HTML ani aplikacji dostępnej dla użytkowników. Na Render dodaj go w ustawieniach środowiskowych serwisu.
 
-Endpoint: POST /api/broadcast
+### Endpointy
 
-Body (JSON):
+| Metoda | Endpoint | Opis |
+|---|---|---|
+| `GET` | `/api/admin/rooms` | Lista aktywnych pokoi i liczby użytkowników |
+| `GET` | `/api/admin/rooms/:room/users` | Użytkownicy pokoju wraz z ich `socketId` i statusem wyciszenia |
+| `GET` | `/api/admin/rooms/:room/bans` | Zablokowane nicki w pokoju |
+| `POST` | `/api/admin/rooms/:room/kick` | Wyrzuca użytkownika z pokoju; body: `{"socketId":"..."}` |
+| `POST` | `/api/admin/rooms/:room/mute` | Wycisza użytkownika; body: `{"socketId":"..."}` |
+| `POST` | `/api/admin/rooms/:room/unmute` | Zdejmuje wyciszenie; body: `{"socketId":"..."}` |
+| `POST` | `/api/admin/rooms/:room/ban` | Blokuje nick aktywnego użytkownika; body: `{"socketId":"..."}` |
+| `POST` | `/api/admin/rooms/:room/unban` | Odblokowuje nick; body: `{"nickname":"..."}` |
+| `POST` | `/api/admin/rooms/:room/broadcast` | Wysyła komunikat systemowy; body: `{"message":"..."}` |
 
-{
-  "roomHash": "pełny_64_znakowy_hash",
-  "message": "Twój komunikat",
-  "adminKey": "twoje_tajne_haslo"
-}
-📂 Struktura plików
-server.js - Główny silnik Node.js (Socket.io + Express API).
+Przykład pobrania listy pokoi:
 
-public/index.html - Interfejs czatu z logiką szyfrowania.
+```bash
+curl https://twoj-serwer/api/admin/rooms \
+  -H "Authorization: Bearer TWÓJ_KLUCZ_ADMINA"
+```
 
-public/admin.html - Panel sterowania dla administratora (API Control).
+`socketId` zmienia się po rozłączeniu i ponownym połączeniu użytkownika. Ban jest przypisany do nicku w danym pokoju, więc można go ominąć, zmieniając nick. Bany są przechowywane w pamięci i znikają po restarcie serwera. Czat nie ma kont użytkowników, więc trwałe bany konkretnych osób wymagają wprowadzenia kont lub stabilnych identyfikatorów.
 
-public/style.css - Warstwa wizualna.
+Publiczne `GET /api/stats` zwraca bieżącą liczbę połączeń i aktywnych pokoi.
 
-""czat online pod : veilo.onrender.com""
+## 📂 Struktura plików
+
+- `server.js` — serwer Node.js (Socket.IO + Express API).
+- `public/index.html` — interfejs czatu.
+- `public/video.html` — strona rozmowy wideo.
+- `public/generator.html` — generator klucza.
+- `public/style.css` — style interfejsu.
+
+Czat online: [veilo.onrender.com](https://veilo.onrender.com)
 
 Created with ❤️ by [Kubuś ]
