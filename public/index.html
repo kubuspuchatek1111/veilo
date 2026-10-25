@@ -118,6 +118,7 @@
                 this.socket.on('user joined', (nick) => this.addSystemMessage(`${nick} dołączył`));
                 this.socket.on('user left', (nick) => this.addSystemMessage(`${nick} opuścił pokój`));
                 this.socket.on('chat message', (msg) => this.addChatMessage(msg));
+                this.socket.on('system message', (msg) => this.addSystemMessage(msg.message));
                 this.socket.on('error', (msg) => this.showError(msg));
             }
 
@@ -199,7 +200,11 @@
 
             updateUserList(users) {
                 const ul = document.getElementById('user-list');
-                ul.innerHTML = users.map(user => `<li>${user}</li>`).join('');
+                ul.replaceChildren(...users.map(user => {
+                    const li = document.createElement('li');
+                    li.textContent = user;
+                    return li;
+                }));
                 
                 // POKAZUJ PRZYCISKI VIDEO GDY SĄ INNI UŻYTKOWNICY
                 const userCount = users.length;
@@ -218,11 +223,14 @@
             addChatMessage(msg) {
                 const li = document.createElement('li');
                 li.className = msg.nickname === this.nickname ? 'self' : '';
-                li.innerHTML = `
-                    <strong>${msg.nickname}</strong>
-                    <span>${msg.message}</span>
-                    <div class="message-time">${new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                `;
+                const nickname = document.createElement('strong');
+                nickname.textContent = msg.nickname;
+                const message = document.createElement('span');
+                message.textContent = msg.message;
+                const time = document.createElement('div');
+                time.className = 'message-time';
+                time.textContent = new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                li.append(nickname, message, time);
                 document.getElementById('messages').appendChild(li);
                 li.scrollIntoView({ behavior: 'smooth' });
             }
