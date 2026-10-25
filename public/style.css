@@ -92,6 +92,7 @@ body::before {
 #nickname-screen::before {
   content: '';
   position: absolute;
+  pointer-events: none;
   inset: 0;
   border-radius: 24px;
   padding: 2px;
