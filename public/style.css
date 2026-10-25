@@ -235,6 +235,23 @@ body::before {
   justify-content: center;
 }
 
+.support-link {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.support-link a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.support-link a:hover,
+.support-link a:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .generator-btn {
   display: flex;
   align-items: center;
