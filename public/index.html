@@ -243,7 +243,7 @@
                     this.roomAdminState = await this.roomAdminRequest(
                         '/api/room-admin/status?room=' + encodeURIComponent(this.currentRoom)
                     );
-                    button.disabled = !this.roomAdminState.enabled ||
+                    button.disabled = (!this.roomAdminState.enabled && !this.roomAdminState.isOwner) ||
                         (this.roomAdminState.hasAdmin && !this.roomAdminState.isOwner);
                     button.textContent = !this.roomAdminState.enabled
                         ? 'Admin niedostępny'
@@ -268,7 +268,6 @@
                 panel.hidden = !panel.hidden;
                 if (!panel.hidden) {
                     await this.refreshRoomAdminStatus();
-                    this.updateRoomAdminPanel();
                 }
             }
 
