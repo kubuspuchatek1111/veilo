@@ -401,6 +401,7 @@ body::before {
 }
 
 #chat-main {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -436,6 +437,164 @@ body::before {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+
+.room-admin-btn,
+.room-admin-buy-btn {
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.16);
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.room-admin-btn:hover:not(:disabled),
+.room-admin-buy-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: white;
+}
+
+.room-admin-btn:disabled,
+.room-admin-buy-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.room-admin-panel {
+  position: absolute;
+  z-index: 10;
+  top: 5.5rem;
+  right: 1rem;
+  width: min(420px, calc(100% - 2rem));
+  max-height: min(75vh, 620px);
+  overflow-y: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.97);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.room-admin-panel[hidden],
+#room-admin-controls[hidden],
+#room-admin-purchase-view[hidden] {
+  display: none;
+}
+
+.room-admin-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.room-admin-heading h3,
+#room-admin-panel h4 {
+  margin: 0 0 0.5rem;
+  color: var(--accent);
+}
+
+#room-admin-status,
+#room-admin-purchase-view p {
+  margin: 0.25rem 0 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.room-admin-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#room-admin-users,
+#room-admin-bans {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+#room-admin-users li,
+#room-admin-bans li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.room-admin-user-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.room-admin-user-actions button,
+#room-admin-bans button,
+.room-admin-broadcast-row button {
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+}
+
+#room-admin-broadcast-form label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-weight: 600;
+}
+
+.room-admin-broadcast-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.room-admin-broadcast-row input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  padding: 0.6rem;
+}
+
+.payment-return-status {
+  margin-top: 0.75rem;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .room-admin-panel {
+    top: 6.5rem;
+  }
 }
 
 /* PRZYCISK KOPIUJ */
