@@ -33,6 +33,7 @@
         <p class="support-link"><a href="https://naffy.io/veilo" target="_blank" rel="noopener noreferrer">Kup nam kawę: naffy.io/veilo</a></p>
         
         <small id="room-hash-display" style="display: none;"></small>
+        <p id="payment-return-status" class="payment-return-status" role="status" hidden></p>
     </div>
 
     <!-- Ekran czatu -->
@@ -51,6 +52,7 @@
                     <div id="room-name">Pokój: <span id="current-room">-</span></div>
                 </div>
                 <div class="header-actions">
+                    <button id="room-admin-btn" class="room-admin-btn" type="button" disabled>Admin pokoju</button>
                     <button id="copy-room-btn" title="Skopiuj hash" disabled>
                         📋 Kopiuj
                     </button>
@@ -62,6 +64,33 @@
                     </button>
                 </div>
             </div>
+
+            <section id="room-admin-panel" class="room-admin-panel" hidden aria-labelledby="room-admin-title">
+                <div class="room-admin-heading">
+                    <div>
+                        <h3 id="room-admin-title">Admin pokoju</h3>
+                        <p id="room-admin-status" role="status"></p>
+                    </div>
+                    <button id="room-admin-close" class="room-admin-close" type="button" aria-label="Zamknij">×</button>
+                </div>
+                <div id="room-admin-purchase-view">
+                    <p>Odblokuj moderację tego pokoju jednorazowo za 2 zł.</p>
+                    <button id="room-admin-buy-btn" class="room-admin-buy-btn" type="button">Kup admina za 2 zł</button>
+                </div>
+                <div id="room-admin-controls" hidden>
+                    <h4>Użytkownicy</h4>
+                    <ul id="room-admin-users"></ul>
+                    <form id="room-admin-broadcast-form">
+                        <label for="room-admin-broadcast-input">Komunikat dla pokoju</label>
+                        <div class="room-admin-broadcast-row">
+                            <input id="room-admin-broadcast-input" maxlength="500" placeholder="Wpisz komunikat...">
+                            <button type="submit">Wyślij</button>
+                        </div>
+                    </form>
+                    <h4>Zablokowane nicki</h4>
+                    <ul id="room-admin-bans"></ul>
+                </div>
+            </section>
 
             <!-- Wiadomości -->
             <ul id="messages"></ul>
@@ -91,6 +120,7 @@
 
             init() {
                 this.bindEvents();
+                this.handlePaymentReturn();
             }
 
             bindEvents() {
@@ -111,6 +141,17 @@
                 };
 
                 document.getElementById('copy-room-btn').onclick = () => this.copyRoomHash();
+                document.getElementById('room-admin-btn').onclick = () => this.toggleRoomAdminPanel();
+                document.getElementById('room-admin-close').onclick = () => {
+                    document.getElementById('room-admin-panel').hidden = true;
+                };
+                document.getElementById('room-admin-buy-btn').onclick = () => this.startRoomAdminCheckout();
+                document.getElementById('room-admin-users').addEventListener('click', (event) => this.handleRoomAdminListClick(event));
+                document.getElementById('room-admin-bans').addEventListener('click', (event) => this.handleRoomAdminListClick(event));
+                document.getElementById('room-admin-broadcast-form').onsubmit = (event) => {
+                    event.preventDefault();
+                    this.broadcastRoomMessage();
+                };
                 document.getElementById('message-form').onsubmit = (e) => {
                     e.preventDefault();
                     this.sendMessage();
@@ -166,7 +207,207 @@
                     document.getElementById('chat-screen').style.display = 'flex';
                     document.getElementById('current-room').textContent = this.currentRoom;
                     document.getElementById('copy-room-btn').disabled = false;
+                    document.getElementById('room-admin-btn').disabled = false;
+                    this.refreshRoomAdminStatus();
                 }, 500);
+            }
+
+            handlePaymentReturn() {
+                const params = new URLSearchParams(window.location.search);
+                const result = params.get('admin_payment');
+                const notice = document.getElementById('payment-return-status');
+                if (!result) return;
+                notice.hidden = false;
+                notice.textContent = result === 'success'
+                    ? 'Płatność wróciła z operatora. Dołącz ponownie do pokoju, aby sprawdzić uprawnienia administratora.'
+                    : 'Płatność administratora nie została dokończona. Możesz spróbować ponownie w pokoju.';
+            }
+
+            async roomAdminRequest(url, options = {}) {
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        ...(options.headers || {}),
+                        ...(options.body ? { 'Content-Type': 'application/json' } : {})
+                    }
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.error || 'Nie udało się wykonać tej czynności.');
+                return result;
+            }
+
+            async refreshRoomAdminStatus() {
+                const button = document.getElementById('room-admin-btn');
+                if (!this.currentRoom) return;
+                try {
+                    this.roomAdminState = await this.roomAdminRequest(
+                        '/api/room-admin/status?room=' + encodeURIComponent(this.currentRoom)
+                    );
+                    button.disabled = this.roomAdminState.hasAdmin && !this.roomAdminState.isOwner;
+                    button.textContent = !this.roomAdminState.enabled
+                        ? 'Admin niedostępny'
+                        : this.roomAdminState.isOwner
+                            ? 'Moderacja pokoju'
+                            : this.roomAdminState.pending
+                                ? 'Dokończ zakup admina'
+                                : this.roomAdminState.hasAdmin
+                                    ? 'Admin pokoju zajęty'
+                                    : 'Admin pokoju · 2 zł';
+                    if (!document.getElementById('room-admin-panel').hidden) {
+                        this.updateRoomAdminPanel();
+                    }
+                } catch (error) {
+                    button.disabled = true;
+                    button.textContent = 'Admin niedostępny';
+                }
+            }
+
+            async toggleRoomAdminPanel() {
+                const panel = document.getElementById('room-admin-panel');
+                panel.hidden = !panel.hidden;
+                if (!panel.hidden) {
+                    await this.refreshRoomAdminStatus();
+                }
+            }
+
+            updateRoomAdminPanel() {
+                const state = this.roomAdminState || {};
+                const status = document.getElementById('room-admin-status');
+                const purchaseView = document.getElementById('room-admin-purchase-view');
+                const controls = document.getElementById('room-admin-controls');
+                const buyButton = document.getElementById('room-admin-buy-btn');
+
+                purchaseView.hidden = Boolean(state.isOwner);
+                controls.hidden = !state.isOwner;
+                buyButton.disabled = !state.enabled || Boolean(state.hasAdmin && !state.pending);
+                buyButton.textContent = state.pending ? 'Wznów zakup admina · 2 zł' : 'Kup admina za 2 zł';
+
+                if (!state.enabled) status.textContent = 'Płatności admina nie są jeszcze skonfigurowane.';
+                else if (state.isOwner) status.textContent = 'Masz uprawnienia administratora tego pokoju.';
+                else if (state.hasAdmin) status.textContent = 'Ten pokój ma już administratora.';
+                else status.textContent = 'Jednorazowa płatność. Uprawnienia są przypisane do tej przeglądarki.';
+                if (state.isOwner) this.loadRoomAdminData();
+            }
+
+            async startRoomAdminCheckout() {
+                const button = document.getElementById('room-admin-buy-btn');
+                const status = document.getElementById('room-admin-status');
+                button.disabled = true;
+                try {
+                    const result = await this.roomAdminRequest('/api/room-admin/checkout', {
+                        method: 'POST',
+                        body: JSON.stringify({ room: this.currentRoom })
+                    });
+                    window.location.assign(result.url);
+                } catch (error) {
+                    status.textContent = error.message;
+                    button.disabled = false;
+                }
+            }
+
+            async loadRoomAdminData() {
+                if (!this.currentRoom || !this.roomAdminState?.isOwner) return;
+                const base = '/api/room-admin/rooms/' + encodeURIComponent(this.currentRoom);
+                try {
+                    const [usersData, bansData] = await Promise.all([
+                        this.roomAdminRequest(base + '/users'),
+                        this.roomAdminRequest(base + '/bans')
+                    ]);
+                    this.renderRoomAdminUsers(usersData.users || []);
+                    this.renderRoomAdminBans(bansData.bannedNicknames || []);
+                } catch (error) {
+                    document.getElementById('room-admin-status').textContent = error.message;
+                }
+            }
+
+            renderRoomAdminUsers(users) {
+                const list = document.getElementById('room-admin-users');
+                list.replaceChildren(...users.map(user => {
+                    const item = document.createElement('li');
+                    const name = document.createElement('span');
+                    name.textContent = user.nickname + (user.muted ? ' · wyciszony' : '');
+                    item.appendChild(name);
+                    if (user.socketId !== this.socket.id) {
+                        const actions = document.createElement('div');
+                        actions.className = 'room-admin-user-actions';
+                        [
+                            { action: 'mute', label: user.muted ? 'Odwycisz' : 'Wycisz', key: user.muted ? 'unmute' : 'mute' },
+                            { action: 'kick', label: 'Wyrzuć', key: 'kick' },
+                            { action: 'ban', label: 'Zbanuj', key: 'ban' }
+                        ].forEach(control => {
+                            const button = document.createElement('button');
+                            button.type = 'button';
+                            button.textContent = control.label;
+                            button.dataset.roomAction = control.key;
+                            button.dataset.socketId = user.socketId;
+                            actions.appendChild(button);
+                        });
+                        item.appendChild(actions);
+                    }
+                    return item;
+                }));
+                if (!users.length) {
+                    const empty = document.createElement('li');
+                    empty.textContent = 'Brak aktywnych użytkowników.';
+                    list.appendChild(empty);
+                }
+            }
+
+            renderRoomAdminBans(nicknames) {
+                const list = document.getElementById('room-admin-bans');
+                list.replaceChildren(...nicknames.map(nickname => {
+                    const item = document.createElement('li');
+                    const name = document.createElement('span');
+                    name.textContent = nickname;
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.textContent = 'Odbanuj';
+                    button.dataset.roomAction = 'unban';
+                    button.dataset.nickname = nickname;
+                    item.append(name, button);
+                    return item;
+                }));
+                if (!nicknames.length) {
+                    const empty = document.createElement('li');
+                    empty.textContent = 'Brak zablokowanych nicków.';
+                    list.appendChild(empty);
+                }
+            }
+
+            async handleRoomAdminListClick(event) {
+                const button = event.target.closest('button[data-room-action]');
+                if (!button) return;
+                const action = button.dataset.roomAction;
+                const body = action === 'unban'
+                    ? { nickname: button.dataset.nickname }
+                    : { socketId: button.dataset.socketId };
+                button.disabled = true;
+                try {
+                    await this.roomAdminRequest(
+                        '/api/room-admin/rooms/' + encodeURIComponent(this.currentRoom) + '/' + action,
+                        { method: 'POST', body: JSON.stringify(body) }
+                    );
+                    await this.loadRoomAdminData();
+                } catch (error) {
+                    document.getElementById('room-admin-status').textContent = error.message;
+                    button.disabled = false;
+                }
+            }
+
+            async broadcastRoomMessage() {
+                const input = document.getElementById('room-admin-broadcast-input');
+                const message = input.value.trim();
+                if (!message) return;
+                try {
+                    await this.roomAdminRequest(
+                        '/api/room-admin/rooms/' + encodeURIComponent(this.currentRoom) + '/broadcast',
+                        { method: 'POST', body: JSON.stringify({ message }) }
+                    );
+                    input.value = '';
+                    document.getElementById('room-admin-status').textContent = 'Wysłano komunikat.';
+                } catch (error) {
+                    document.getElementById('room-admin-status').textContent = error.message;
+                }
             }
 
             copyRoomHash() {
@@ -204,7 +445,7 @@
                 const ul = document.getElementById('user-list');
                 ul.replaceChildren(...users.map(user => {
                     const li = document.createElement('li');
-                    li.textContent = user;
+                    li.textContent = typeof user === 'string' ? user : user.nickname;
                     return li;
                 }));
                 

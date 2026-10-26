@@ -94,6 +94,22 @@ curl https://twoj-serwer/api/admin/rooms \
 
 Publiczne `GET /api/stats` zwraca bieżącą liczbę połączeń i aktywnych pokoi.
 
+## 👑 Płatny administrator pokoju
+
+Każdy aktywny pokój może mieć jednego administratora kupowanego jednorazowo za **2 zł**. Integracja wymaga Node.js 20 lub nowszego. Po potwierdzeniu płatności przez webhook Stripe właściciel dostaje panel do wyciszania, wyrzucania i banowania użytkowników, odbanowywania oraz wysyłania komunikatów. Uprawnienie jest przypisane do pokoju, a przeglądarka właściciela jest rozpoznawana przez chronione cookie. Skasowanie danych witryny lub zmiana przeglądarki oznacza utratę dostępu do panelu. Bany nadal są przechowywane w pamięci serwera i znikają po restarcie.
+
+Do uruchomienia płatności skonfiguruj serwis i bazę:
+
+1. Utwórz bazę PostgreSQL w Render i ustaw w serwisie Veilo zmienną `DATABASE_URL` na jej **Internal Database URL**.
+2. W Stripe utwórz webhook wskazujący na `https://veilo.onrender.com/api/payments/stripe-webhook`. Zaznacz zdarzenia `checkout.session.completed` oraz `checkout.session.async_payment_succeeded`.
+3. W zmiennych środowiskowych serwisu ustaw:
+   - `STRIPE_SECRET_KEY` — klucz sekretu Stripe (najpierw testowy, później produkcyjny),
+   - `STRIPE_WEBHOOK_SECRET` — sekret podpisu utworzonego endpointu webhooka,
+   - `DATABASE_URL` — adres bazy PostgreSQL,
+   - `APP_BASE_URL` — adres aplikacji, np. `https://veilo.onrender.com`.
+
+Serwer tworzy tabelę przy pierwszym użyciu. Nie wpisuj kluczy Stripe do plików publicznych ani repozytorium. Bez tych zmiennych panel informuje, że płatności nie są skonfigurowane; reszta czatu działa normalnie. Cena jest ustawiona po stronie serwera jako 200 groszy.
+
 ## 📂 Struktura plików
 
 - `server.js` — serwer Node.js (Socket.IO + Express API).
