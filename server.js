@@ -131,18 +131,28 @@ function stripeWebhook(req, res) {
 
     const session = event.data.object;
     const metadata = session.metadata || {};
-    if (metadata.purpose !== 'room_admin' || !isValidRoomId(metadata.room) ||
-        session.mode !== 'payment' || session.payment_status !== 'paid' ||
-        session.currency !== 'pln' || session.amount_total !== 200 ||
-        !metadata.purchase_id) {
+    if (metadata.purpose !== 'room_admin') return res.json({ received: true });
+    if (!isValidRoomId(metadata.room) || session.mode !== 'payment' ||
+        session.currency !== 'pln' || session.amount_total !== 200 || !metadata.purchase_id) {
         return res.status(400).send('Nieprawidłowe dane płatności');
     }
+    if (session.payment_status !== 'paid') return res.json({ received: true });
 
-    ensureRoomAdminSchema().then(() => dbPool.query(
-        "UPDATE room_admin_purchases SET state = 'paid', paid_at = NOW() " +
-        "WHERE room = $1 AND purchase_id = $2 AND stripe_session_id = $3 AND state = 'pending'",
-        [metadata.room, metadata.purchase_id, session.id]
-    )).then(() => res.json({ received: true })).catch(error => {
+    ensureRoomAdminSchema().then(async () => {
+        const update = await dbPool.query(
+            "UPDATE room_admin_purchases SET state = 'paid', paid_at = NOW() " +
+            "WHERE room = $1 AND purchase_id = $2 AND stripe_session_id = $3 AND state = 'pending'",
+            [metadata.room, metadata.purchase_id, session.id]
+        );
+        if (update.rowCount === 0) {
+            const existing = await dbPool.query(
+                "SELECT state FROM room_admin_purchases WHERE room = $1 AND purchase_id = $2 AND stripe_session_id = $3",
+                [metadata.room, metadata.purchase_id, session.id]
+            );
+            if (existing.rows[0]?.state !== 'paid') throw new Error('Brak oczekującego zakupu dla sesji Stripe');
+        }
+        res.json({ received: true });
+    }).catch(error => {
         console.error('Błąd zapisu płatności administratora pokoju:', error.message);
         res.status(500).send('Nie udało się zapisać płatności');
     });
