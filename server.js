@@ -1,10 +1,13 @@
 const express = require('express');
 const http = require('http');
 const crypto = require('crypto');
+const Stripe = require('stripe');
+const { Pool } = require('pg');
 const { Server } = require("socket.io");
 const path = require('path');
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -13,12 +16,137 @@ const io = new Server(server, {
     }
 });
 
-app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.post('/api/payments/stripe-webhook', express.raw({ type: 'application/json' }), stripeWebhook);
+app.use(express.json({ limit: '10mb' }));
 
 const users = Object.create(null);
 const rooms = Object.create(null);
 const bannedNicknames = Object.create(null);
+const dbPool = process.env.DATABASE_URL ? new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.RENDER ? { rejectUnauthorized: false } : undefined
+}) : null;
+let roomAdminSchemaPromise;
+
+function isValidRoomId(room) {
+    return typeof room === 'string' && /^[A-Z0-9_-]{1,32}$/i.test(room);
+}
+
+function roomAdminCookieName(room) {
+    return 'veilo_room_admin_' + room;
+}
+
+function readCookie(req, name) {
+    const cookies = (req.headers.cookie || '').split(';');
+    const item = cookies.map(value => value.trim()).find(value => value.startsWith(name + '='));
+    if (!item) return '';
+    try { return decodeURIComponent(item.slice(name.length + 1)); } catch { return ''; }
+}
+
+function hashOwnerToken(token) {
+    return crypto.createHash('sha256').update(token).digest();
+}
+
+function matchesOwnerToken(token, storedHash) {
+    if (!token || !storedHash) return false;
+    const supplied = hashOwnerToken(token);
+    const expected = Buffer.from(storedHash, 'hex');
+    return supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+}
+
+function setRoomAdminCookie(req, res, room, token) {
+    const secure = req.secure ? '; Secure' : '';
+    res.append('Set-Cookie', roomAdminCookieName(room) + '=' + encodeURIComponent(token) +
+        '; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000' + secure);
+}
+
+async function ensureRoomAdminSchema() {
+    if (!dbPool) throw new Error('Brak DATABASE_URL');
+    if (!roomAdminSchemaPromise) {
+        roomAdminSchemaPromise = dbPool.query(`
+            CREATE TABLE IF NOT EXISTS room_admin_purchases (
+                room TEXT PRIMARY KEY,
+                purchase_id TEXT NOT NULL UNIQUE,
+                owner_token_hash TEXT NOT NULL,
+                state TEXT NOT NULL CHECK (state IN ('pending', 'paid')),
+                stripe_session_id TEXT UNIQUE,
+                checkout_url TEXT,
+                expires_at BIGINT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                paid_at TIMESTAMPTZ
+            )
+        `).catch(error => {
+            roomAdminSchemaPromise = null;
+            throw error;
+        });
+    }
+    await roomAdminSchemaPromise;
+}
+
+function getStripeClient() {
+    if (!process.env.STRIPE_SECRET_KEY) throw new Error('Brak STRIPE_SECRET_KEY');
+    return new Stripe(process.env.STRIPE_SECRET_KEY);
+}
+
+function requireRoomAdminOwner(req, res, next) {
+    const room = req.params.room;
+    if (!isValidRoomId(room)) return res.status(400).json({ error: 'Nieprawidłowy pokój' });
+    ensureRoomAdminSchema().then(async () => {
+        const result = await dbPool.query(
+            "SELECT owner_token_hash FROM room_admin_purchases WHERE room = $1 AND state = 'paid'",
+            [room]
+        );
+        const token = readCookie(req, roomAdminCookieName(room));
+        if (!result.rows.length || !matchesOwnerToken(token, result.rows[0].owner_token_hash)) {
+            res.status(403).json({ error: 'Brak uprawnień administratora tego pokoju' });
+            return;
+        }
+        req.roomAdminRoom = room;
+        next();
+    }).catch(error => {
+        console.error('Błąd autoryzacji administratora pokoju:', error.message);
+        res.status(503).json({ error: 'Płatności administratora pokoju nie są skonfigurowane' });
+    });
+}
+
+function stripeWebhook(req, res) {
+    if (!Buffer.isBuffer(req.body) || !process.env.STRIPE_WEBHOOK_SECRET || !process.env.STRIPE_SECRET_KEY) {
+        return res.status(503).send('Płatności nie są skonfigurowane');
+    }
+
+    let event;
+    try {
+        event = getStripeClient().webhooks.constructEvent(
+            req.body,
+            req.get('stripe-signature'),
+            process.env.STRIPE_WEBHOOK_SECRET
+        );
+    } catch (error) {
+        return res.status(400).send('Nieprawidłowy podpis webhooka');
+    }
+
+    const supportedEvents = ['checkout.session.completed', 'checkout.session.async_payment_succeeded'];
+    if (!supportedEvents.includes(event.type)) return res.json({ received: true });
+
+    const session = event.data.object;
+    const metadata = session.metadata || {};
+    if (metadata.purpose !== 'room_admin' || !isValidRoomId(metadata.room) ||
+        session.mode !== 'payment' || session.payment_status !== 'paid' ||
+        session.currency !== 'pln' || session.amount_total !== 200 ||
+        !metadata.purchase_id) {
+        return res.status(400).send('Nieprawidłowe dane płatności');
+    }
+
+    ensureRoomAdminSchema().then(() => dbPool.query(
+        "UPDATE room_admin_purchases SET state = 'paid', paid_at = NOW() " +
+        "WHERE room = $1 AND purchase_id = $2 AND stripe_session_id = $3 AND state = 'pending'",
+        [metadata.room, metadata.purchase_id, session.id]
+    )).then(() => res.json({ received: true })).catch(error => {
+        console.error('Błąd zapisu płatności administratora pokoju:', error.message);
+        res.status(500).send('Nie udało się zapisać płatności');
+    });
+}
 
 function normalizeNickname(nickname) {
     return nickname.trim().toLowerCase();
@@ -36,7 +164,7 @@ function getRoomUsers(room) {
 
 function sendRoomUserList(room) {
     if (rooms[room]) {
-        io.to(room).emit('user list', getRoomUsers(room).map(user => user.nickname));
+        io.to(room).emit('user list', getRoomUsers(room));
     }
 }
 
@@ -208,6 +336,191 @@ app.post('/api/admin/rooms/:room/broadcast', requireAdmin, (req, res) => {
     }
     io.to(req.params.room).emit('system message', { message: message.trim(), timestamp: Date.now() });
     res.json({ success: true, room: req.params.room });
+});
+
+// === ROOM ADMIN (one-time Stripe Checkout purchase) ===
+app.get('/api/room-admin/status', async (req, res) => {
+    const room = req.query.room;
+    if (!isValidRoomId(room)) return res.status(400).json({ error: 'Nieprawidłowy pokój' });
+    if (!dbPool) return res.json({ enabled: false, hasAdmin: false, isOwner: false, pricePln: 2 });
+
+    try {
+        await ensureRoomAdminSchema();
+        const result = await dbPool.query(
+            'SELECT state, owner_token_hash FROM room_admin_purchases WHERE room = $1',
+            [room]
+        );
+        const purchase = result.rows[0];
+        const token = readCookie(req, roomAdminCookieName(room));
+        const isOwner = purchase?.state === 'paid' &&
+            matchesOwnerToken(token, purchase.owner_token_hash);
+        res.json({
+            enabled: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET),
+            hasAdmin: purchase?.state === 'paid',
+            isOwner,
+            pending: purchase?.state === 'pending' && matchesOwnerToken(token, purchase.owner_token_hash),
+            pricePln: 2
+        });
+    } catch (error) {
+        console.error('Błąd sprawdzania administratora pokoju:', error.message);
+        res.status(503).json({ error: 'Nie można teraz sprawdzić uprawnień administratora' });
+    }
+});
+
+app.post('/api/room-admin/checkout', async (req, res) => {
+    const { room } = req.body || {};
+    if (!isValidRoomId(room)) return res.status(400).json({ error: 'Nieprawidłowy pokój' });
+    if (!rooms[room] || getRoomUsers(room).length === 0) {
+        return res.status(404).json({ error: 'Dołącz do pokoju przed zakupem administratora' });
+    }
+    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET || !dbPool) {
+        return res.status(503).json({ error: 'Płatności administratora pokoju nie są jeszcze skonfigurowane' });
+    }
+
+    try {
+        await ensureRoomAdminSchema();
+        const current = await dbPool.query(
+            'SELECT purchase_id, owner_token_hash, state, checkout_url, expires_at FROM room_admin_purchases WHERE room = $1',
+            [room]
+        );
+        const existing = current.rows[0];
+        const existingToken = readCookie(req, roomAdminCookieName(room));
+
+        if (existing?.state === 'paid') {
+            return res.status(409).json({ error: 'Ten pokój ma już administratora' });
+        }
+        if (existing?.state === 'pending') {
+            const ownsPendingCheckout = matchesOwnerToken(existingToken, existing.owner_token_hash);
+            if (ownsPendingCheckout && existing.checkout_url && Number(existing.expires_at) > Math.floor(Date.now() / 1000)) {
+                return res.json({ url: existing.checkout_url });
+            }
+            if (Number(existing.expires_at) > Math.floor(Date.now() / 1000)) {
+                return res.status(409).json({ error: 'Zakup administratora dla tego pokoju jest już rozpoczęty' });
+            }
+            await dbPool.query('DELETE FROM room_admin_purchases WHERE room = $1 AND state = $2', [room, 'pending']);
+        }
+
+        const purchaseId = crypto.randomUUID();
+        const ownerToken = crypto.randomBytes(32).toString('hex');
+        await dbPool.query(
+            "INSERT INTO room_admin_purchases (room, purchase_id, owner_token_hash, state) VALUES ($1, $2, $3, 'pending')",
+            [room, purchaseId, hashOwnerToken(ownerToken).toString('hex')]
+        );
+
+        try {
+            const baseUrl = (process.env.APP_BASE_URL || 'https://veilo.onrender.com').replace(/\/$/, '');
+            const stripe = getStripeClient();
+            const session = await stripe.checkout.sessions.create({
+                mode: 'payment',
+                locale: 'pl',
+                client_reference_id: purchaseId,
+                line_items: [{
+                    price_data: {
+                        currency: 'pln',
+                        unit_amount: 200,
+                        product_data: { name: 'Admin pokoju Veilo' }
+                    },
+                    quantity: 1
+                }],
+                success_url: baseUrl + '/?room=' + encodeURIComponent(room) + '&admin_payment=success',
+                cancel_url: baseUrl + '/?room=' + encodeURIComponent(room) + '&admin_payment=cancel',
+                metadata: { purpose: 'room_admin', room, purchase_id: purchaseId }
+            }, { idempotencyKey: purchaseId });
+
+            await dbPool.query(
+                'UPDATE room_admin_purchases SET stripe_session_id = $1, checkout_url = $2, expires_at = $3 WHERE room = $4 AND purchase_id = $5',
+                [session.id, session.url, session.expires_at, room, purchaseId]
+            );
+            setRoomAdminCookie(req, res, room, ownerToken);
+            res.json({ url: session.url });
+        } catch (error) {
+            await dbPool.query('DELETE FROM room_admin_purchases WHERE room = $1 AND purchase_id = $2', [room, purchaseId]);
+            throw error;
+        }
+    } catch (error) {
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'Zakup administratora dla tego pokoju jest już rozpoczęty' });
+        }
+        console.error('Błąd tworzenia płatności administratora pokoju:', error.message);
+        res.status(503).json({ error: 'Nie udało się rozpocząć płatności. Spróbuj ponownie później.' });
+    }
+});
+
+app.get('/api/room-admin/rooms/:room/users', requireRoomAdminOwner, (req, res) => {
+    res.json({ room: req.roomAdminRoom, users: getRoomUsers(req.roomAdminRoom) });
+});
+
+app.get('/api/room-admin/rooms/:room/bans', requireRoomAdminOwner, (req, res) => {
+    const bans = bannedNicknames[req.roomAdminRoom];
+    res.json({ room: req.roomAdminRoom, bannedNicknames: bans ? Array.from(bans.values()) : [] });
+});
+
+app.post('/api/room-admin/rooms/:room/kick', requireRoomAdminOwner, (req, res) => {
+    const { socketId } = req.body || {};
+    const user = users[socketId];
+    if (!socketId || !user || user.room !== req.roomAdminRoom) {
+        return res.status(404).json({ error: 'Użytkownik nie jest aktywny w tym pokoju' });
+    }
+    const target = io.sockets.sockets.get(socketId);
+    if (target) target.emit('system message', { message: 'Administrator pokoju usunął Cię z pokoju.', timestamp: Date.now() });
+    const removed = removeUserFromRoom(socketId);
+    res.json({ success: true, nickname: removed.nickname });
+});
+
+app.post('/api/room-admin/rooms/:room/ban', requireRoomAdminOwner, (req, res) => {
+    const { socketId } = req.body || {};
+    const user = users[socketId];
+    if (!socketId || !user || user.room !== req.roomAdminRoom) {
+        return res.status(404).json({ error: 'Użytkownik nie jest aktywny w tym pokoju' });
+    }
+    getRoomBans(req.roomAdminRoom).set(normalizeNickname(user.nickname), user.nickname);
+    const target = io.sockets.sockets.get(socketId);
+    if (target) target.emit('system message', { message: 'Administrator pokoju zablokował Twój nick.', timestamp: Date.now() });
+    const removed = removeUserFromRoom(socketId);
+    res.json({ success: true, nickname: removed.nickname });
+});
+
+app.post('/api/room-admin/rooms/:room/unban', requireRoomAdminOwner, (req, res) => {
+    const { nickname } = req.body || {};
+    if (typeof nickname !== 'string' || !nickname.trim()) {
+        return res.status(400).json({ error: 'Nick jest wymagany' });
+    }
+    const removed = bannedNicknames[req.roomAdminRoom]?.delete(normalizeNickname(nickname)) || false;
+    res.json({ success: true, unbanned: removed, nickname: nickname.trim() });
+});
+
+app.post('/api/room-admin/rooms/:room/mute', requireRoomAdminOwner, (req, res) => {
+    const { socketId } = req.body || {};
+    const user = users[socketId];
+    if (!socketId || !user || user.room !== req.roomAdminRoom) {
+        return res.status(404).json({ error: 'Użytkownik nie jest aktywny w tym pokoju' });
+    }
+    user.muted = true;
+    io.to(socketId).emit('system message', { message: 'Administrator pokoju Cię wyciszył.', timestamp: Date.now() });
+    res.json({ success: true, socketId, muted: true });
+});
+
+app.post('/api/room-admin/rooms/:room/unmute', requireRoomAdminOwner, (req, res) => {
+    const { socketId } = req.body || {};
+    const user = users[socketId];
+    if (!socketId || !user || user.room !== req.roomAdminRoom) {
+        return res.status(404).json({ error: 'Użytkownik nie jest aktywny w tym pokoju' });
+    }
+    user.muted = false;
+    io.to(socketId).emit('system message', { message: 'Administrator pokoju zdjął wyciszenie.', timestamp: Date.now() });
+    res.json({ success: true, socketId, muted: false });
+});
+
+app.post('/api/room-admin/rooms/:room/broadcast', requireRoomAdminOwner, (req, res) => {
+    const { message } = req.body || {};
+    if (!rooms[req.roomAdminRoom] || getRoomUsers(req.roomAdminRoom).length === 0) {
+        return res.status(404).json({ error: 'Pokój nie istnieje lub nie ma aktywnych użytkowników' });
+    }
+    if (typeof message !== 'string' || !message.trim() || message.length > 500) {
+        return res.status(400).json({ error: 'Wiadomość musi mieć od 1 do 500 znaków' });
+    }
+    io.to(req.roomAdminRoom).emit('system message', { message: message.trim(), timestamp: Date.now() });
+    res.json({ success: true, room: req.roomAdminRoom });
 });
 
 app.post('/api/generate-hash', (req, res) => {
