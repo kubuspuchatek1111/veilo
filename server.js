@@ -391,10 +391,12 @@ app.post('/api/room-admin/checkout', async (req, res) => {
         }
         if (existing?.state === 'pending') {
             const ownsPendingCheckout = matchesOwnerToken(existingToken, existing.owner_token_hash);
-            if (ownsPendingCheckout && existing.checkout_url && Number(existing.expires_at) > Math.floor(Date.now() / 1000)) {
+            const checkoutStillActive = !existing.expires_at ||
+                Number(existing.expires_at) > Math.floor(Date.now() / 1000);
+            if (ownsPendingCheckout && existing.checkout_url && checkoutStillActive) {
                 return res.json({ url: existing.checkout_url });
             }
-            if (Number(existing.expires_at) > Math.floor(Date.now() / 1000)) {
+            if (checkoutStillActive) {
                 return res.status(409).json({ error: 'Zakup administratora dla tego pokoju jest już rozpoczęty' });
             }
             await dbPool.query('DELETE FROM room_admin_purchases WHERE room = $1 AND state = $2', [room, 'pending']);
@@ -427,10 +429,11 @@ app.post('/api/room-admin/checkout', async (req, res) => {
                 metadata: { purpose: 'room_admin', room, purchase_id: purchaseId }
             }, { idempotencyKey: purchaseId });
 
-            await dbPool.query(
+            const savedSession = await dbPool.query(
                 'UPDATE room_admin_purchases SET stripe_session_id = $1, checkout_url = $2, expires_at = $3 WHERE room = $4 AND purchase_id = $5',
                 [session.id, session.url, session.expires_at, room, purchaseId]
             );
+            if (savedSession.rowCount !== 1) throw new Error('Nie udało się powiązać sesji płatności z pokojem');
             setRoomAdminCookie(req, res, room, ownerToken);
             res.json({ url: session.url });
         } catch (error) {
