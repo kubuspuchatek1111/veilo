@@ -78,6 +78,7 @@
                     <button id="room-admin-buy-btn" class="room-admin-buy-btn" type="button">Kup admina za 2 zł</button>
                 </div>
                 <div id="room-admin-controls" hidden>
+                    <p class="room-admin-refresh-notice">Odświeżenie strony przez administratora zwalnia pokój. Dostęp trzeba będzie kupić ponownie.</p>
                     <section class="room-appearance-controls" aria-labelledby="room-appearance-title">
                         <h4 id="room-appearance-title">Wygląd czatu</h4>
                         <p class="room-appearance-hint">Ustawienia zobaczą wszyscy uczestnicy tego pokoju.</p>
@@ -147,6 +148,7 @@
             init() {
                 this.bindEvents();
                 this.handlePaymentReturn();
+                this.resetRoomAdminAfterRefresh();
             }
 
             bindEvents() {
@@ -249,7 +251,34 @@
                 notice.hidden = false;
                 notice.textContent = result === 'success'
                     ? 'Płatność wróciła z operatora. Dołącz ponownie do pokoju, aby sprawdzić uprawnienia administratora.'
-                    : 'Płatność administratora nie została dokończona. Możesz spróbować ponownie w pokoju.';
+                    : result === 'reset'
+                        ? 'Po odświeżeniu administrator pokoju został zwolniony. Aby ponownie moderować, trzeba ponownie kupić dostęp.'
+                        : 'Płatność administratora nie została dokończona. Możesz spróbować ponownie w pokoju.';
+            }
+
+            async resetRoomAdminAfterRefresh() {
+                const navigation = performance.getEntriesByType('navigation')[0];
+                if (navigation?.type !== 'reload') return;
+
+                const url = new URL(window.location.href);
+                const room = url.searchParams.get('room');
+                if (!room) return;
+
+                try {
+                    const response = await fetch(
+                        '/api/room-admin/rooms/' + encodeURIComponent(room) + '/reset',
+                        { method: 'POST' }
+                    );
+                    if (!response.ok) return;
+                    const result = await response.json();
+                    if (!result.released) return;
+
+                    url.searchParams.set('admin_payment', 'reset');
+                    window.history.replaceState({}, '', url);
+                    this.handlePaymentReturn();
+                } catch (error) {
+                    console.warn('Nie udało się zwolnić administratora po odświeżeniu:', error.message);
+                }
             }
 
             async roomAdminRequest(url, options = {}) {
