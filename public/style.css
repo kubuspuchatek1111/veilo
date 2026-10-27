@@ -1060,3 +1060,15 @@ body[data-chat-bubbles="pill"] #messages li.self { border-bottom-right-radius: 2
   cursor: pointer;
 }
 .room-appearance-save:disabled { opacity: 0.65; cursor: wait; }
+
+
+.room-admin-refresh-notice {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 9px;
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
