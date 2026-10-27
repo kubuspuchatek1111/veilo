@@ -96,7 +96,7 @@ Publiczne `GET /api/stats` zwraca bieżącą liczbę połączeń i aktywnych pok
 
 ## 👑 Płatny administrator pokoju
 
-Każdy aktywny pokój może mieć jednego administratora kupowanego jednorazowo za **2 zł**. Integracja wymaga Node.js 20 lub nowszego. Po potwierdzeniu płatności przez webhook Stripe właściciel dostaje panel do wyciszania, wyrzucania i banowania użytkowników, odbanowywania oraz wysyłania komunikatów. Uprawnienie jest przypisane do pokoju, a przeglądarka właściciela jest rozpoznawana przez chronione cookie. Skasowanie danych witryny lub zmiana przeglądarki oznacza utratę dostępu do panelu. Bany nadal są przechowywane w pamięci serwera i znikają po restarcie.
+Każdy aktywny pokój może mieć jednego administratora kupowanego jednorazowo za **2 zł**. Integracja wymaga Node.js 20 lub nowszego. Po potwierdzeniu płatności przez webhook Stripe właściciel dostaje panel do wyciszania, wyrzucania i banowania użytkowników, odbanowywania oraz wysyłania komunikatów. Może też ustawić wspólny motyw, czcionkę i kształt dymków widoczny dla wszystkich uczestników pokoju. Uprawnienie jest przypisane do pokoju, a przeglądarka właściciela jest rozpoznawana przez chronione cookie. Skasowanie danych witryny lub zmiana przeglądarki oznacza utratę dostępu do panelu. Bany nadal są przechowywane w pamięci serwera i znikają po restarcie.
 
 Do uruchomienia płatności skonfiguruj serwis i bazę:
 
