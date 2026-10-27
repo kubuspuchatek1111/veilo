@@ -73,10 +73,13 @@ async function ensureRoomAdminSchema() {
                 stripe_session_id TEXT UNIQUE,
                 checkout_url TEXT,
                 expires_at BIGINT,
+                appearance JSONB NOT NULL DEFAULT '{}'::jsonb,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 paid_at TIMESTAMPTZ
             )
-        `).catch(error => {
+        `).then(() => dbPool.query(
+            "ALTER TABLE room_admin_purchases ADD COLUMN IF NOT EXISTS appearance JSONB NOT NULL DEFAULT '{}'::jsonb"
+        )).catch(error => {
             roomAdminSchemaPromise = null;
             throw error;
         });
@@ -349,6 +352,60 @@ app.post('/api/admin/rooms/:room/broadcast', requireAdmin, (req, res) => {
 });
 
 // === ROOM ADMIN (one-time Stripe Checkout purchase) ===
+const ROOM_APPEARANCE_OPTIONS = {
+    theme: ['night', 'light', 'ocean', 'rose', 'forest'],
+    font: ['inter', 'system', 'serif', 'mono'],
+    bubbles: ['rounded', 'square', 'pill']
+};
+
+function normalizeRoomAppearance(value = {}) {
+    return {
+        theme: ROOM_APPEARANCE_OPTIONS.theme.includes(value.theme) ? value.theme : 'night',
+        font: ROOM_APPEARANCE_OPTIONS.font.includes(value.font) ? value.font : 'inter',
+        bubbles: ROOM_APPEARANCE_OPTIONS.bubbles.includes(value.bubbles) ? value.bubbles : 'rounded'
+    };
+}
+
+app.get('/api/room-admin/appearance', async (req, res) => {
+    const room = req.query.room;
+    if (!isValidRoomId(room)) return res.status(400).json({ error: 'Nieprawidłowy pokój' });
+    if (!dbPool) return res.json({ appearance: normalizeRoomAppearance() });
+    try {
+        await ensureRoomAdminSchema();
+        const result = await dbPool.query(
+            "SELECT appearance FROM room_admin_purchases WHERE room = $1 AND state = 'paid'",
+            [room]
+        );
+        res.json({ appearance: normalizeRoomAppearance(result.rows[0]?.appearance || {}) });
+    } catch (error) {
+        console.error('Błąd pobierania wyglądu pokoju:', error.message);
+        res.status(503).json({ error: 'Nie można teraz pobrać wyglądu pokoju' });
+    }
+});
+
+app.put('/api/room-admin/rooms/:room/appearance', requireRoomAdminOwner, async (req, res) => {
+    const appearance = req.body?.appearance;
+    if (!appearance || typeof appearance !== 'object' || Array.isArray(appearance) ||
+        !ROOM_APPEARANCE_OPTIONS.theme.includes(appearance.theme) ||
+        !ROOM_APPEARANCE_OPTIONS.font.includes(appearance.font) ||
+        !ROOM_APPEARANCE_OPTIONS.bubbles.includes(appearance.bubbles)) {
+        return res.status(400).json({ error: 'Nieprawidłowe ustawienia wyglądu' });
+    }
+
+    const normalized = normalizeRoomAppearance(appearance);
+    try {
+        await dbPool.query(
+            "UPDATE room_admin_purchases SET appearance = $1::jsonb WHERE room = $2 AND state = 'paid'",
+            [JSON.stringify(normalized), req.roomAdminRoom]
+        );
+        io.to(req.roomAdminRoom).emit('room appearance updated', normalized);
+        res.json({ success: true, appearance: normalized });
+    } catch (error) {
+        console.error('Błąd zapisywania wyglądu pokoju:', error.message);
+        res.status(503).json({ error: 'Nie udało się zapisać wyglądu pokoju' });
+    }
+});
+
 app.get('/api/room-admin/status', async (req, res) => {
     const room = req.query.room;
     if (!isValidRoomId(room)) return res.status(400).json({ error: 'Nieprawidłowy pokój' });
