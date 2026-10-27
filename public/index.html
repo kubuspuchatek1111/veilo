@@ -74,10 +74,36 @@
                     <button id="room-admin-close" class="room-admin-close" type="button" aria-label="Zamknij">×</button>
                 </div>
                 <div id="room-admin-purchase-view">
-                    <p>Odblokuj moderację tego pokoju jednorazowo za 2 zł.</p>
+                    <p>Odblokuj zmianę wyglądu i moderację tego pokoju jednorazowo za 2 zł.</p>
                     <button id="room-admin-buy-btn" class="room-admin-buy-btn" type="button">Kup admina za 2 zł</button>
                 </div>
                 <div id="room-admin-controls" hidden>
+                    <section class="room-appearance-controls" aria-labelledby="room-appearance-title">
+                        <h4 id="room-appearance-title">Wygląd czatu</h4>
+                        <p class="room-appearance-hint">Ustawienia zobaczą wszyscy uczestnicy tego pokoju.</p>
+                        <label for="room-theme-select">Motyw</label>
+                        <select id="room-theme-select">
+                            <option value="night">Nocny</option>
+                            <option value="light">Jasny</option>
+                            <option value="ocean">Ocean</option>
+                            <option value="rose">Różowy</option>
+                            <option value="forest">Leśny</option>
+                        </select>
+                        <label for="room-font-select">Czcionka</label>
+                        <select id="room-font-select">
+                            <option value="inter">Inter</option>
+                            <option value="system">Systemowa</option>
+                            <option value="serif">Szeryfowa</option>
+                            <option value="mono">Monospace</option>
+                        </select>
+                        <label for="room-bubbles-select">Dymki</label>
+                        <select id="room-bubbles-select">
+                            <option value="rounded">Zaokrąglone</option>
+                            <option value="square">Kanciaste</option>
+                            <option value="pill">Pigułki</option>
+                        </select>
+                        <button id="room-appearance-save" class="room-appearance-save" type="button">Zastosuj wygląd</button>
+                    </section>
                     <h4>Użytkownicy</h4>
                     <ul id="room-admin-users"></ul>
                     <form id="room-admin-broadcast-form">
@@ -148,6 +174,7 @@
                 document.getElementById('room-admin-buy-btn').onclick = () => this.startRoomAdminCheckout();
                 document.getElementById('room-admin-users').addEventListener('click', (event) => this.handleRoomAdminListClick(event));
                 document.getElementById('room-admin-bans').addEventListener('click', (event) => this.handleRoomAdminListClick(event));
+                document.getElementById('room-appearance-save').onclick = () => this.saveRoomAppearance();
                 document.getElementById('room-admin-broadcast-form').onsubmit = (event) => {
                     event.preventDefault();
                     this.broadcastRoomMessage();
@@ -162,6 +189,7 @@
                 this.socket.on('user left', (nick) => this.addSystemMessage(`${nick} opuścił pokój`));
                 this.socket.on('chat message', (msg) => this.addChatMessage(msg));
                 this.socket.on('system message', (msg) => this.addSystemMessage(msg.message));
+                this.socket.on('room appearance updated', (appearance) => this.applyRoomAppearance(appearance));
                 this.socket.on('error', (msg) => this.showError(msg));
             }
 
@@ -209,6 +237,7 @@
                     document.getElementById('copy-room-btn').disabled = false;
                     document.getElementById('room-admin-btn').disabled = false;
                     this.refreshRoomAdminStatus();
+                    this.loadRoomAppearance();
                 }, 500);
             }
 
@@ -286,7 +315,65 @@
                 else if (state.isOwner) status.textContent = 'Masz uprawnienia administratora tego pokoju.';
                 else if (state.hasAdmin) status.textContent = 'Ten pokój ma już administratora.';
                 else status.textContent = 'Jednorazowa płatność. Uprawnienia są przypisane do tej przeglądarki.';
-                if (state.isOwner) this.loadRoomAdminData();
+                if (state.isOwner) {
+                    this.loadRoomAdminData();
+                    this.loadRoomAppearance();
+                }
+            }
+
+            applyRoomAppearance(appearance = {}) {
+                const allowed = {
+                    theme: ['night', 'light', 'ocean', 'rose', 'forest'],
+                    font: ['inter', 'system', 'serif', 'mono'],
+                    bubbles: ['rounded', 'square', 'pill']
+                };
+                const selected = {
+                    theme: allowed.theme.includes(appearance.theme) ? appearance.theme : 'night',
+                    font: allowed.font.includes(appearance.font) ? appearance.font : 'inter',
+                    bubbles: allowed.bubbles.includes(appearance.bubbles) ? appearance.bubbles : 'rounded'
+                };
+                document.body.dataset.chatTheme = selected.theme;
+                document.body.dataset.chatFont = selected.font;
+                document.body.dataset.chatBubbles = selected.bubbles;
+                document.getElementById('room-theme-select').value = selected.theme;
+                document.getElementById('room-font-select').value = selected.font;
+                document.getElementById('room-bubbles-select').value = selected.bubbles;
+                this.roomAppearance = selected;
+            }
+
+            async loadRoomAppearance() {
+                if (!this.currentRoom) return;
+                try {
+                    const result = await this.roomAdminRequest(
+                        '/api/room-admin/appearance?room=' + encodeURIComponent(this.currentRoom)
+                    );
+                    this.applyRoomAppearance(result.appearance || {});
+                } catch (error) {
+                    console.warn('Nie udało się pobrać wyglądu pokoju:', error.message);
+                }
+            }
+
+            async saveRoomAppearance() {
+                const button = document.getElementById('room-appearance-save');
+                const status = document.getElementById('room-admin-status');
+                const appearance = {
+                    theme: document.getElementById('room-theme-select').value,
+                    font: document.getElementById('room-font-select').value,
+                    bubbles: document.getElementById('room-bubbles-select').value
+                };
+                button.disabled = true;
+                try {
+                    const result = await this.roomAdminRequest(
+                        '/api/room-admin/rooms/' + encodeURIComponent(this.currentRoom) + '/appearance',
+                        { method: 'PUT', body: JSON.stringify({ appearance }) }
+                    );
+                    this.applyRoomAppearance(result.appearance);
+                    status.textContent = 'Wygląd pokoju zapisany dla wszystkich uczestników.';
+                } catch (error) {
+                    status.textContent = error.message;
+                } finally {
+                    button.disabled = false;
+                }
             }
 
             async startRoomAdminCheckout() {
