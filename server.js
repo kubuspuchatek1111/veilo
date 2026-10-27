@@ -383,6 +383,23 @@ app.get('/api/room-admin/appearance', async (req, res) => {
     }
 });
 
+app.post('/api/room-admin/rooms/:room/reset', requireRoomAdminOwner, async (req, res) => {
+    try {
+        const result = await dbPool.query(
+            "DELETE FROM room_admin_purchases WHERE room = $1 AND state = 'paid'",
+            [req.roomAdminRoom]
+        );
+        const secure = req.secure ? '; Secure' : '';
+        res.append('Set-Cookie', roomAdminCookieName(req.roomAdminRoom) +
+            '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + secure);
+        io.to(req.roomAdminRoom).emit('room appearance updated', normalizeRoomAppearance());
+        res.json({ success: true, released: result.rowCount === 1 });
+    } catch (error) {
+        console.error('Błąd zwalniania administratora pokoju:', error.message);
+        res.status(503).json({ error: 'Nie udało się zwolnić administratora pokoju' });
+    }
+});
+
 app.put('/api/room-admin/rooms/:room/appearance', requireRoomAdminOwner, async (req, res) => {
     const appearance = req.body?.appearance;
     if (!appearance || typeof appearance !== 'object' || Array.isArray(appearance) ||
