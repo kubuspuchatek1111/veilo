@@ -1005,6 +1005,18 @@ body[data-chat-font="mono"] { --chat-font: "SFMono-Regular", Consolas, monospace
 #messages li:not(.self):not(.system) {
   background: var(--incoming-bubble);
   color: var(--incoming-text);
+  -webkit-text-fill-color: var(--incoming-text);
+  opacity: 1;
+}
+#messages li:not(.self):not(.system) strong {
+  color: var(--incoming-text);
+  -webkit-text-fill-color: var(--incoming-text);
+  opacity: 1;
+}
+#messages li:not(.self):not(.system) .message-time {
+  color: var(--incoming-text);
+  -webkit-text-fill-color: var(--incoming-text);
+  opacity: 0.8;
 }
 #messages li.self {
   background: linear-gradient(135deg, var(--outgoing-start), var(--outgoing-end));
