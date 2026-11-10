@@ -1110,8 +1110,8 @@ body[data-chat-bubbles="pill"] #messages li.self { border-bottom-right-radius: 2
 }
 
 
-/* Ciemny, nieprzezroczysty wygląd na iOS — niezależny od motywu systemowego i pokoju. */
-@supports (-webkit-touch-callout: none) {
+/* Ciemny, nieprzezroczysty wygląd na wąskich ekranach, także w przeglądarkach wbudowanych. */
+@media (max-width: 768px) {
   :root {
     color-scheme: dark;
   }
