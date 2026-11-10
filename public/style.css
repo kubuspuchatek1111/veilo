@@ -1084,3 +1084,27 @@ body[data-chat-bubbles="pill"] #messages li.self { border-bottom-right-radius: 2
   font-size: 0.82rem;
   line-height: 1.45;
 }
+
+
+/* === CZARNY TEKST WE WSZYSTKICH WIADOMOŚCIACH === */
+#messages li:not(.system) {
+  background: #f1f5f9 !important;
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  opacity: 1;
+}
+#messages li:not(.system) strong,
+#messages li:not(.system) span,
+#messages li:not(.system) .message-time {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  opacity: 1;
+}
+#messages li.self {
+  background: #bbf7d0 !important;
+}
+#messages li.system {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  text-shadow: none;
+}
