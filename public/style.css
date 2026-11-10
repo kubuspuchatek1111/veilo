@@ -1108,3 +1108,70 @@ body[data-chat-bubbles="pill"] #messages li.self { border-bottom-right-radius: 2
   -webkit-text-fill-color: #000000 !important;
   text-shadow: none;
 }
+
+
+/* Ciemny, nieprzezroczysty wygląd na iOS — niezależny od motywu systemowego i pokoju. */
+@supports (-webkit-touch-callout: none) {
+  :root {
+    color-scheme: dark;
+  }
+  body,
+  body[data-chat-theme] {
+    --bg-gradient: linear-gradient(135deg, #0b1120 0%, #111827 55%, #0f172a 100%);
+    --glass-bg: #111827;
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --accent: #10b981;
+    --accent-hover: #059669;
+    --purple-glow: #8b5cf6;
+    --chat-surface: #0f172a;
+    --chat-sidebar-bg: #111827;
+    --chat-header-bg: #111827;
+    --chat-input-bg: #1e293b;
+    --incoming-bubble: #1e293b;
+    --incoming-text: #f8fafc;
+    --outgoing-start: #059669;
+    --outgoing-end: #047857;
+  }
+  #chat-screen,
+  #chat-main,
+  #messages {
+    background: #0b1220 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  #sidebar,
+  .header,
+  #message-form,
+  .room-admin-panel {
+    background: #111827 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  #message-input {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+  }
+  #messages li:not(.system) {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    -webkit-text-fill-color: #f8fafc !important;
+    opacity: 1 !important;
+  }
+  #messages li:not(.system) strong,
+  #messages li:not(.system) span,
+  #messages li:not(.system) .message-time {
+    color: #f8fafc !important;
+    -webkit-text-fill-color: #f8fafc !important;
+    opacity: 1 !important;
+  }
+  #messages li.self {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+  }
+  #messages li.system {
+    color: #cbd5e1 !important;
+    -webkit-text-fill-color: #cbd5e1 !important;
+    text-shadow: none !important;
+  }
+}
